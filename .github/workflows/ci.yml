@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: ruff + mypy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff mypy
+      - name: ruff (syntax errors + pyflakes)
+        run: ruff check .
+      - name: mypy (backend/eval, backend/search)
+        run: mypy
+
+  tests:
+    name: fast tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install (CPU-only torch to avoid the multi-GB CUDA wheel)
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          pip install -r backend/requirements.txt pytest
+      - name: pytest (slow tests are deselected by pytest.ini)
+        run: pytest -q
+
+  relevance-gate:
+    name: relevance + latency gate
+    needs: [lint, tests]
+    runs-on: ubuntu-latest
+    # Secrets are not exposed to PRs from forks; the gate only runs where it can actually run.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      # A missing credential must fail the gate, not silently skip it.
+      REQUIRE_RELEVANCE_GATE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          pip install -r backend/requirements.txt pytest
+      - name: Cache CLIP model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-clip-vit-b-32
+      - name: Relevance gate (nDCG@10 floor + latency ceiling from backend/eval/BASELINE.md)
+        run: pytest -m slow -q

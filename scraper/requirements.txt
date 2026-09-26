@@ -1,0 +1,11 @@
+certifi>=2026.5.20
+openai>=1.50.0
+pillow>=10.4.0
+python-dotenv>=1.0.1
+requests>=2.32.0
+selenium>=4.20.0
+sentence-transformers>=3.0.0
+setuptools>=70.0.0
+supabase>=2.6.0
+torch>=2.3.0
+undetected-chromedriver>=3.5.5

@@ -1,0 +1,57 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+.vscode/
+.idea/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+backend/.venv/
+.venv/
+*.env.local
+node_modules/
+Niche_brand/dist/
+data/*.jsonl
+data/*.csv
+!data/curated_brands.csv
+!data/curated_brands_pilot.csv
+!data/search_quality_review.csv
+!data/brand_batches/
+!data/brand_batches/*.csv
+data/ingestion_audit/
+data/batch_reports/
+data/images/
+backend/ml/artifacts/
+experiments/artifacts/
+*.pkl
+*.onnx
+
+# Local recovery artifacts from iCloud file eviction on this machine -- not project content.
+*.dataless-backup
+
+# Generic build/dist output, in addition to the specific Niche_brand/dist/ rule above.
+dist/
+**/dist/
+build/
+**/build/
+
+# Persistent Instagram login state and browser-generated secrets/caches.
+scraper/chrome_profile/
+**/Cookies
+**/Cookies-journal
+**/Local State
+**/Session Storage/
+**/Sessions/
+**/Cache/
+**/Code Cache/
+
+# Exported ONNX text encoder (~254 MB): built by backend/ml/export_clip_text_onnx.py, never committed
+backend/ml/artifacts/

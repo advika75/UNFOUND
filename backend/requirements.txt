@@ -1,0 +1,32 @@
+# API runtime
+fastapi==0.141.1
+uvicorn[standard]==0.52.3
+python-multipart==0.0.32
+pydantic==2.13.4
+
+# Configuration and HTTP clients
+python-dotenv==1.2.2
+httpx==0.28.1
+requests==2.34.2
+selenium==4.40.0
+
+# Supabase and PostgreSQL maintenance utilities
+supabase==2.31.0
+psycopg[binary]==3.3.4
+psycopg-pool==3.3.1
+
+# CLIP embeddings and image processing
+sentence-transformers==5.7.0
+transformers==5.15.0
+torch==2.13.0
+numpy==2.5.2
+Pillow==12.3.0
+scikit-learn==1.9.0
+
+# ONNX text encoder: export + parity check (backend/ml/). The API itself installs backend/requirements-api.txt.
+onnx==1.23.0
+onnxruntime==1.30.0
+tokenizers==0.22.2
+
+# Optional metadata classification commands
+openai==3.0.0

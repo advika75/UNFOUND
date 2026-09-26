@@ -1,0 +1,7 @@
+# Deliberately narrow: syntax errors + pyflakes (unused imports/variables, undefined names).
+# Style rules (E701/E702 one-line statements, ~340 hits) are intentionally NOT enforced;
+# the existing codebase is written in that dense style and reformatting it is out of scope.
+extend-exclude = ["Niche_brand", "frontend", ".venv"]
+
+[lint]
+select = ["E9", "F"]

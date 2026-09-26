@@ -1,0 +1,1213 @@
+[
+  {
+    "id": "q001",
+    "query": "top",
+    "intent": {
+      "product_type": "top"
+    },
+    "relevant": {
+      "1dab4eeb-2a68-4f7e-a4d5-a85ca4969c24": 2,
+      "014e77bf-78b3-4edc-9cc8-2fb8eba0205b": 2,
+      "36264c9a-f5d2-4fcc-9b52-ee72c26f389a": 2,
+      "e8e353dd-abba-4758-a759-770ae88c7bf5": 2,
+      "de4ec373-102d-46e0-9f11-0dfe73cce940": 2,
+      "cdf4a69f-f4d6-437b-aa78-2bd85efdf021": 2,
+      "c684fa0b-87c3-447a-bb92-28d67d1e519e": 2,
+      "310ced93-4eb7-4e22-b042-7175bd888019": 2,
+      "e71c9701-1d37-47bd-b730-e16890cfe68d": 2,
+      "7e8aac15-ccac-4366-a8ae-b9cf6164232f": 2,
+      "e887bab7-a8e9-4249-9855-fc8ddac2e247": 2,
+      "cafe1bb7-1584-47c1-9db3-c35fc7b1e9a7": 2
+    }
+  },
+  {
+    "id": "q002",
+    "query": "dress",
+    "intent": {
+      "product_type": "dress"
+    },
+    "relevant": {
+      "e3dc3a24-5f38-4c61-8fc8-a88402ecd370": 2,
+      "f00ebbcf-a117-4d3c-b544-8bcb972538c0": 2,
+      "c1b38b78-39df-41bd-ac35-d2ae5829a3c3": 2,
+      "3d5741c2-077c-452c-8d67-51bd5b8c085f": 2,
+      "e64fd956-8cd4-4880-815d-a45aa21c97d8": 2,
+      "08693454-ea83-431b-bc2d-0647d9b87edb": 2,
+      "afc46dd4-5395-4e75-a650-e642b2dbe5b9": 2,
+      "e11fb2a3-b639-4532-a58a-b712f38f2ec0": 2,
+      "d72b86d7-749e-4029-81c6-1ae942c39ad4": 2,
+      "ca408169-5a1e-43a2-b799-173ab15b8cb7": 2,
+      "989011fe-8be4-4bc9-9479-6e5eacd6e973": 2,
+      "7913727c-f32c-4949-b27d-529e24604b27": 2,
+      "2edff8c2-a808-4e41-b2e0-355ab1423471": 2,
+      "4eb96801-d105-4651-9548-04cd7b0b817e": 2,
+      "963aa916-2fdb-4ddd-bdde-04ab4bf7b55d": 2
+    }
+  },
+  {
+    "id": "q003",
+    "query": "kurti",
+    "intent": {
+      "product_type": "kurti"
+    },
+    "relevant": {
+      "fdcb09ba-773b-42d1-ad7b-33f7ecc95438": 2,
+      "9d370732-1675-446f-9ab7-22cf99c64af8": 2,
+      "69916ec0-abe9-421c-8c6f-3ee298d07beb": 2,
+      "8010e89b-2a49-43c2-ae88-17d245e0d6b8": 2,
+      "88f41b18-c7dd-44b5-bce8-7b234b0a4f3c": 2,
+      "29309e51-6c35-486e-b9be-96619642cf78": 2,
+      "753d2c88-cf3b-4d2a-bf08-c9b7d33cf7c2": 2,
+      "67171189-1cff-4579-a5da-cb0837504432": 2,
+      "e2f750f2-4cf3-4429-829a-847922da7558": 2,
+      "37ef794f-af66-47d4-a99d-562085437314": 2,
+      "95ab79b8-0a5b-4e22-b41c-deab8bba37af": 2,
+      "ff6f4a03-eba6-490c-9745-fec4cfba1b4f": 1,
+      "3c96d3ba-c2a3-4901-9d2a-a0f868b48f66": 2,
+      "5055f340-59f5-43b8-9795-d18026b050f3": 2
+    }
+  },
+  {
+    "id": "q004",
+    "query": "necklace",
+    "intent": {
+      "product_type": "necklace"
+    },
+    "relevant": {
+      "e79e8292-5351-45b4-b502-3518deb17735": 2,
+      "9b61a622-46b8-4828-8f4c-9f6921921905": 2,
+      "7e13b37c-25d1-46df-9973-5361dfea8df8": 1,
+      "f792196d-f747-4dd9-823a-d57d5345a91b": 2,
+      "39827bd2-8977-4e49-852f-03d7e40dc537": 1,
+      "4ca581f3-a420-4302-a1ca-db7ffef8ec99": 2,
+      "a1ac3a64-8f72-470c-a386-248bbbea1dc4": 2
+    }
+  },
+  {
+    "id": "q005",
+    "query": "earrings",
+    "intent": {
+      "product_type": "earrings"
+    },
+    "relevant": {
+      "39827bd2-8977-4e49-852f-03d7e40dc537": 1,
+      "ba4f4155-b36c-4d8c-9071-3d40ae196fed": 1,
+      "3f6e4e6b-e49f-4357-b2d5-d6f5c294d60b": 2,
+      "7ed5736b-9f5d-4deb-b9e9-3f48d9d97b14": 1,
+      "10074851-7dfd-49ef-96c7-6c7845687533": 1,
+      "b7692c29-b8c7-4e03-b4c4-0da0ae6a358b": 1
+    }
+  },
+  {
+    "id": "q006",
+    "query": "handbag",
+    "intent": {
+      "product_type": "bag"
+    },
+    "relevant": {
+      "d5d90905-d93f-449b-8d67-67f6ce3a6e18": 2,
+      "657ae826-b4f8-475d-935c-68305fe546fc": 2,
+      "4be6687b-f280-4fd7-b8e1-efff92ecbe8a": 2,
+      "c707870a-14fd-4774-b4c8-57dd1e070e4c": 2,
+      "b93ec8ef-1a5a-4e1c-9978-0b50ef4790f3": 2,
+      "d0308d91-d839-4ca2-9d89-3fae91982d3c": 2,
+      "7d7b12ca-c1b0-48a5-9c4c-289a7a17f1f4": 2,
+      "f6cfa4a6-8d90-4266-8d19-9fbaac3aebfe": 2,
+      "110bd882-e3ae-4cd8-b50b-1c54ca9aba6f": 2,
+      "bc6e36d0-8b7e-4aca-bc72-e237f28ed23b": 2,
+      "5a56807f-98b5-4503-86d1-213f94afb8c0": 2,
+      "707f5516-edcc-47e5-a49f-62e0cdbef342": 2,
+      "4bd5d33e-1cae-4f9f-a5c8-89e4e377b676": 2,
+      "de46c4ae-5b32-4d95-912d-8d5b6cac56ea": 2,
+      "c60cb662-db28-418a-a800-84849c44955f": 2
+    }
+  },
+  {
+    "id": "q007",
+    "query": "sneakers",
+    "intent": {
+      "product_type": "sneakers"
+    },
+    "relevant": {
+      "7fdb70d7-190f-4da4-804a-b6808456b3d9": 2,
+      "e783f5f8-267e-4368-9063-5894ae509ca0": 2,
+      "dc6bd995-0ac0-42ad-9d39-589564b862cd": 2,
+      "bb2b0187-c39a-4cca-9059-dcb39becb386": 1
+    }
+  },
+  {
+    "id": "q008",
+    "query": "hoodie",
+    "intent": {
+      "product_type": "hoodie"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q009",
+    "query": "co-ord set",
+    "intent": {
+      "product_type": "co-ord-set"
+    },
+    "relevant": {
+      "59691842-0a2a-4427-8936-4c38c87632c5": 2,
+      "332b1ebe-12c0-4523-8326-26fbe55a6da3": 2,
+      "1450b4fd-2b22-4ceb-9435-1b323addbf6d": 1
+    }
+  },
+  {
+    "id": "q010",
+    "query": "sunglasses",
+    "intent": {
+      "product_type": "sunglasses"
+    },
+    "relevant": {
+      "4ca9da7c-de4a-4550-8e5d-806cdaafd3da": 2,
+      "18339c0a-1e2c-4bca-9ecd-80abd602b7d6": 2
+    }
+  },
+  {
+    "id": "q011",
+    "query": "black top",
+    "intent": {
+      "product_type": "top",
+      "colour": "black"
+    },
+    "relevant": {
+      "36264c9a-f5d2-4fcc-9b52-ee72c26f389a": 2,
+      "7e8aac15-ccac-4366-a8ae-b9cf6164232f": 1,
+      "1dab4eeb-2a68-4f7e-a4d5-a85ca4969c24": 1,
+      "d4b00f97-db99-4dcc-81c0-93ab18185785": 1,
+      "442da4d6-a20d-46e2-b0d7-54d5a11373bc": 1,
+      "420ac357-c722-4f69-853f-e0916a036f85": 1,
+      "67080539-ce6c-4741-9d2d-ff3011b51782": 1,
+      "49a612cf-2da5-4aa3-9452-586c555f92c9": 1,
+      "cdf4a69f-f4d6-437b-aa78-2bd85efdf021": 1,
+      "3a2f5365-5170-479c-b08e-b27a8afbcac9": 1,
+      "e8e353dd-abba-4758-a759-770ae88c7bf5": 1,
+      "c684fa0b-87c3-447a-bb92-28d67d1e519e": 1,
+      "e2828e4f-c81c-45bb-b1fc-ee6f5298fdd6": 1
+    }
+  },
+  {
+    "id": "q012",
+    "query": "white top",
+    "intent": {
+      "product_type": "top",
+      "colour": "white"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q013",
+    "query": "black dress",
+    "intent": {
+      "product_type": "dress",
+      "colour": "black"
+    },
+    "relevant": {
+      "af0a3fba-b1ce-4df8-8b64-1780a1e69e2f": 1,
+      "a98a6844-0c34-42ff-84e1-6a65bb809d7a": 1,
+      "c1b38b78-39df-41bd-ac35-d2ae5829a3c3": 1,
+      "6d633fd4-d1a3-44aa-8e20-a02b4a9da83f": 1,
+      "989011fe-8be4-4bc9-9479-6e5eacd6e973": 1,
+      "6360d744-2d7b-42e8-9cb6-91cf8ccf3284": 1,
+      "e64fd956-8cd4-4880-815d-a45aa21c97d8": 1,
+      "06de276d-978d-40cc-85e0-db825728db1f": 1,
+      "c655e073-08b6-4b83-b137-befb90afefdc": 1,
+      "c868028c-ac04-4b43-b159-28ac54ac6585": 1,
+      "6ff3f394-b486-44b0-8624-14f93d753537": 1
+    }
+  },
+  {
+    "id": "q014",
+    "query": "red dress",
+    "intent": {
+      "product_type": "dress",
+      "colour": "red"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q015",
+    "query": "gold necklace",
+    "intent": {
+      "product_type": "necklace",
+      "colour": "gold"
+    },
+    "relevant": {
+      "7e13b37c-25d1-46df-9973-5361dfea8df8": 1,
+      "a1ac3a64-8f72-470c-a386-248bbbea1dc4": 1,
+      "9b61a622-46b8-4828-8f4c-9f6921921905": 1,
+      "f792196d-f747-4dd9-823a-d57d5345a91b": 1,
+      "39827bd2-8977-4e49-852f-03d7e40dc537": 1,
+      "4ca581f3-a420-4302-a1ca-db7ffef8ec99": 1,
+      "e79e8292-5351-45b4-b502-3518deb17735": 1
+    }
+  },
+  {
+    "id": "q016",
+    "query": "silver earrings",
+    "intent": {
+      "product_type": "earrings",
+      "colour": "silver"
+    },
+    "relevant": {
+      "10074851-7dfd-49ef-96c7-6c7845687533": 1,
+      "39827bd2-8977-4e49-852f-03d7e40dc537": 1,
+      "ba4f4155-b36c-4d8c-9071-3d40ae196fed": 1,
+      "7ed5736b-9f5d-4deb-b9e9-3f48d9d97b14": 1,
+      "b7692c29-b8c7-4e03-b4c4-0da0ae6a358b": 1
+    }
+  },
+  {
+    "id": "q017",
+    "query": "black hoodie",
+    "intent": {
+      "product_type": "hoodie",
+      "colour": "black"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q018",
+    "query": "green top",
+    "intent": {
+      "product_type": "top",
+      "colour": "green"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q019",
+    "query": "pink dress",
+    "intent": {
+      "product_type": "dress",
+      "colour": "pink"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q020",
+    "query": "black sunglasses",
+    "intent": {
+      "product_type": "sunglasses",
+      "colour": "black"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q021",
+    "query": "navy top",
+    "intent": {
+      "product_type": "top",
+      "colour": "navy"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q022",
+    "query": "beige kurti",
+    "intent": {
+      "product_type": "kurti",
+      "colour": "beige"
+    },
+    "relevant": {
+      "fdcb09ba-773b-42d1-ad7b-33f7ecc95438": 1,
+      "9d370732-1675-446f-9ab7-22cf99c64af8": 1,
+      "69916ec0-abe9-421c-8c6f-3ee298d07beb": 1,
+      "8010e89b-2a49-43c2-ae88-17d245e0d6b8": 1,
+      "88f41b18-c7dd-44b5-bce8-7b234b0a4f3c": 1,
+      "29309e51-6c35-486e-b9be-96619642cf78": 1,
+      "753d2c88-cf3b-4d2a-bf08-c9b7d33cf7c2": 1,
+      "67171189-1cff-4579-a5da-cb0837504432": 1,
+      "e2f750f2-4cf3-4429-829a-847922da7558": 1,
+      "37ef794f-af66-47d4-a99d-562085437314": 1,
+      "95ab79b8-0a5b-4e22-b41c-deab8bba37af": 1,
+      "ff6f4a03-eba6-490c-9745-fec4cfba1b4f": 1,
+      "3c96d3ba-c2a3-4901-9d2a-a0f868b48f66": 1,
+      "5055f340-59f5-43b8-9795-d18026b050f3": 1
+    }
+  },
+  {
+    "id": "q023",
+    "query": "black bag",
+    "intent": {
+      "product_type": "bag",
+      "colour": "black"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q024",
+    "query": "blue top",
+    "intent": {
+      "product_type": "top",
+      "colour": "blue"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q025",
+    "query": "women's top",
+    "intent": {
+      "product_type": "top",
+      "audience": "women"
+    },
+    "relevant": {
+      "014e77bf-78b3-4edc-9cc8-2fb8eba0205b": 2,
+      "4c1826b6-56c8-4346-8f79-e1664298e695": 2,
+      "de4ec373-102d-46e0-9f11-0dfe73cce940": 2,
+      "e8e353dd-abba-4758-a759-770ae88c7bf5": 2,
+      "1dab4eeb-2a68-4f7e-a4d5-a85ca4969c24": 2,
+      "67080539-ce6c-4741-9d2d-ff3011b51782": 2,
+      "19611677-b8a0-4215-b8b0-6d76b716a115": 2,
+      "b4969f42-9aaa-450c-90de-6ac800f0d928": 2,
+      "310ced93-4eb7-4e22-b042-7175bd888019": 2,
+      "e5dcce43-ad3f-47d1-a657-51ec152baa89": 2,
+      "49a612cf-2da5-4aa3-9452-586c555f92c9": 2,
+      "f004569b-3e91-4a46-a2b9-6720e9577604": 2,
+      "517d3a1c-d51f-4fb5-88c2-6588987abf8a": 2,
+      "524b3356-ccb4-49c0-8d91-2993c4bc4185": 2,
+      "36264c9a-f5d2-4fcc-9b52-ee72c26f389a": 2
+    }
+  },
+  {
+    "id": "q026",
+    "query": "women's dress",
+    "intent": {
+      "product_type": "dress",
+      "audience": "women"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q027",
+    "query": "women's kurti",
+    "intent": {
+      "product_type": "kurti",
+      "audience": "women"
+    },
+    "relevant": {
+      "69916ec0-abe9-421c-8c6f-3ee298d07beb": 2,
+      "8010e89b-2a49-43c2-ae88-17d245e0d6b8": 2,
+      "88f41b18-c7dd-44b5-bce8-7b234b0a4f3c": 2,
+      "29309e51-6c35-486e-b9be-96619642cf78": 2,
+      "753d2c88-cf3b-4d2a-bf08-c9b7d33cf7c2": 2,
+      "67171189-1cff-4579-a5da-cb0837504432": 2,
+      "e2f750f2-4cf3-4429-829a-847922da7558": 2,
+      "37ef794f-af66-47d4-a99d-562085437314": 2,
+      "95ab79b8-0a5b-4e22-b41c-deab8bba37af": 2,
+      "ff6f4a03-eba6-490c-9745-fec4cfba1b4f": 1,
+      "3c96d3ba-c2a3-4901-9d2a-a0f868b48f66": 2,
+      "5055f340-59f5-43b8-9795-d18026b050f3": 2,
+      "49cb9194-f213-4f89-ba62-9b4488aea59e": 2,
+      "258368a9-e357-40ca-8991-0f2b29a98c38": 2
+    }
+  },
+  {
+    "id": "q028",
+    "query": "women's jewellery",
+    "intent": {
+      "product_type": "jewellery",
+      "audience": "women"
+    },
+    "relevant": {
+      "9f163cea-8371-40e8-ba95-4d1d7c9ebbe8": 2
+    }
+  },
+  {
+    "id": "q029",
+    "query": "unisex hoodie",
+    "intent": {
+      "product_type": "hoodie",
+      "audience": "unisex"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q030",
+    "query": "unisex sneakers",
+    "intent": {
+      "product_type": "sneakers",
+      "audience": "unisex"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q031",
+    "query": "men's shirt",
+    "intent": {
+      "product_type": "shirt",
+      "audience": "men"
+    },
+    "relevant": {
+      "bdbe9ac0-f254-40ae-b3b0-4f900ab22433": 1,
+      "c727f61a-ada9-4a1c-96cf-0c2c381997f1": 1,
+      "39f51091-3ece-48fc-a9b7-75f8c2ead630": 1,
+      "d520182f-0ae7-4278-aca4-370ece2232a7": 1,
+      "3d3464ab-ffdb-4bf7-baec-9de4d7ecca91": 1,
+      "06acb9bb-4f95-4bdd-abc1-ac100eac66a2": 1,
+      "36b8beb4-ac13-40da-9676-a36d359f4f07": 1,
+      "20fd37c1-1e00-40cc-9a9b-527e20fb62a0": 1
+    },
+    "notes": "expected weak/fail: only 1 product in the entire catalog has audience=MEN despite 50 raw men-shirts category assignments"
+  },
+  {
+    "id": "q032",
+    "query": "men's jeans",
+    "intent": {
+      "product_type": "jeans",
+      "audience": "men"
+    },
+    "relevant": {
+      "6dd1a105-3730-4d69-be76-f60c578a58ff": 1,
+      "83e37e43-a00b-4e0a-92ec-d7acc6e4a694": 1,
+      "89cd7018-e46b-4123-bb97-5a82d89b24e8": 1,
+      "fe08cb1d-3dcf-498f-9062-16a52c5f0cfd": 1,
+      "11940dac-1fab-42f7-9330-d90243e53b65": 1,
+      "0bad4b04-d230-4223-b2e3-cb7935da4d2d": 1
+    },
+    "notes": "expected fail: only 1 raw men-jeans row exists catalog-wide, 0 high-confidence"
+  },
+  {
+    "id": "q033",
+    "query": "women's bag",
+    "intent": {
+      "product_type": "bag",
+      "audience": "women"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q034",
+    "query": "women's co-ord set",
+    "intent": {
+      "product_type": "co-ord-set",
+      "audience": "women"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q035",
+    "query": "minimalist necklace",
+    "intent": {
+      "product_type": "necklace",
+      "style": "minimalist"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q036",
+    "query": "oversized top",
+    "intent": {
+      "product_type": "top",
+      "style": "oversized"
+    },
+    "relevant": {
+      "8a493757-f120-480d-b85c-a9e4a06e416b": 1,
+      "130f2ce7-1cf8-4b94-bc36-380dbcb1f64d": 1,
+      "acdf5933-991c-4d8d-b8ad-e5c16a9d26d2": 1,
+      "5bf60bc9-a705-4f0d-8157-4405dd1623c2": 1,
+      "5b0f32ca-b626-4078-a0c9-94eec9fc72ba": 1,
+      "dfbbde2c-ca6e-4175-b391-7846c9e5483a": 1,
+      "a892c214-2572-4435-a9b1-488afe790066": 1,
+      "843fe979-4789-4c9d-8aeb-197983dca6ff": 1,
+      "e7d13e94-65a4-4347-8b97-3dc1ba49277a": 1,
+      "145c313f-2c6b-4258-898b-474b59f606a1": 1,
+      "36264c9a-f5d2-4fcc-9b52-ee72c26f389a": 1,
+      "0d896172-4ca0-4918-b361-705b36ab1b00": 1,
+      "3a2f5365-5170-479c-b08e-b27a8afbcac9": 1,
+      "e8e353dd-abba-4758-a759-770ae88c7bf5": 1,
+      "310ced93-4eb7-4e22-b042-7175bd888019": 1
+    }
+  },
+  {
+    "id": "q037",
+    "query": "boho earrings",
+    "intent": {
+      "product_type": "earrings",
+      "style": "boho"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q038",
+    "query": "streetwear hoodie",
+    "intent": {
+      "product_type": "hoodie",
+      "style": "streetwear"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q039",
+    "query": "vintage dress",
+    "intent": {
+      "product_type": "dress",
+      "style": "vintage"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q040",
+    "query": "ethnic kurti",
+    "intent": {
+      "product_type": "kurti",
+      "style": "ethnic"
+    },
+    "relevant": {
+      "8010e89b-2a49-43c2-ae88-17d245e0d6b8": 2,
+      "29309e51-6c35-486e-b9be-96619642cf78": 2,
+      "753d2c88-cf3b-4d2a-bf08-c9b7d33cf7c2": 2,
+      "95ab79b8-0a5b-4e22-b41c-deab8bba37af": 2,
+      "ff6f4a03-eba6-490c-9745-fec4cfba1b4f": 1,
+      "3c96d3ba-c2a3-4901-9d2a-a0f868b48f66": 2,
+      "3393e00a-d822-48c5-86a5-665f1ca05c61": 2,
+      "72139331-6bab-435a-9cd8-7957a83a0f44": 2,
+      "447bf43c-84ee-4d97-9c9c-0d0289e8d207": 1,
+      "73d4ad94-5df1-4fcd-9802-8060e396be8f": 1,
+      "9d370732-1675-446f-9ab7-22cf99c64af8": 1,
+      "fdcb09ba-773b-42d1-ad7b-33f7ecc95438": 1,
+      "69916ec0-abe9-421c-8c6f-3ee298d07beb": 2,
+      "88f41b18-c7dd-44b5-bce8-7b234b0a4f3c": 2
+    }
+  },
+  {
+    "id": "q041",
+    "query": "party top",
+    "intent": {
+      "product_type": "top",
+      "style": "party"
+    },
+    "relevant": {
+      "76bc6eef-d31d-4d3b-98a7-62969e3402f9": 2
+    }
+  },
+  {
+    "id": "q042",
+    "query": "formal dress",
+    "intent": {
+      "product_type": "dress",
+      "style": "formal"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q043",
+    "query": "quiet luxury jewellery",
+    "intent": {
+      "product_type": "jewellery",
+      "style": "quiet luxury"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q044",
+    "query": "classic watch",
+    "intent": {
+      "product_type": "watch",
+      "style": "classic"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q045",
+    "query": "trendy bag",
+    "intent": {
+      "product_type": "bag",
+      "style": "trendy"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q046",
+    "query": "boho dress",
+    "intent": {
+      "product_type": "dress",
+      "style": "boho"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q047",
+    "query": "top under ₹1000",
+    "intent": {
+      "product_type": "top",
+      "price_max": 1000
+    },
+    "relevant": {
+      "df094fdb-f8b0-45b9-8dfd-9ae17dd953f6": 1,
+      "e40cac17-671d-4ee2-83d0-0d202c57ff42": 1,
+      "9d14321f-8f9a-4e26-822c-0d47258d262a": 1,
+      "ce7798ae-a441-41f6-92dd-533754b9306a": 1,
+      "f49a5fcb-7532-48ae-ac3b-cb9ad4a67c4b": 1,
+      "f4204f61-1439-4f59-9db6-77d3bb0d5721": 1,
+      "e8ff9dc1-dbe4-4a47-80f8-733ec354a9d1": 1,
+      "420ac357-c722-4f69-853f-e0916a036f85": 1,
+      "4e4eea3f-a08c-479a-8cef-e4d82edd16b7": 1,
+      "547d844b-633a-4581-b4f3-e2dc04ac0e48": 1,
+      "b74927ab-399e-4190-a7f6-deb5a9b1c2f2": 1,
+      "014e77bf-78b3-4edc-9cc8-2fb8eba0205b": 1,
+      "58ec7311-1cbf-499c-a2e0-28aac31059fc": 1,
+      "a41ffa60-2d1f-4654-8fe5-852196a77d2c": 1
+    }
+  },
+  {
+    "id": "q048",
+    "query": "dress under ₹1500",
+    "intent": {
+      "product_type": "dress",
+      "price_max": 1500
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q049",
+    "query": "jewellery under ₹500",
+    "intent": {
+      "product_type": "jewellery",
+      "price_max": 500
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q050",
+    "query": "kurti under ₹1200",
+    "intent": {
+      "product_type": "kurti",
+      "price_max": 1200
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q051",
+    "query": "bag under ₹2000",
+    "intent": {
+      "product_type": "bag",
+      "price_max": 2000
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q052",
+    "query": "sneakers under ₹800",
+    "intent": {
+      "product_type": "sneakers",
+      "price_max": 800
+    },
+    "relevant": {},
+    "notes": "expected weak: only ~5 sneakers exist catalog-wide and most stored prices are 0.0/unset"
+  },
+  {
+    "id": "q053",
+    "query": "necklace under ₹300",
+    "intent": {
+      "product_type": "necklace",
+      "price_max": 300
+    },
+    "relevant": {
+      "7e13b37c-25d1-46df-9973-5361dfea8df8": 1,
+      "9b61a622-46b8-4828-8f4c-9f6921921905": 1,
+      "a1ac3a64-8f72-470c-a386-248bbbea1dc4": 1,
+      "f792196d-f747-4dd9-823a-d57d5345a91b": 1,
+      "39827bd2-8977-4e49-852f-03d7e40dc537": 1,
+      "4ca581f3-a420-4302-a1ca-db7ffef8ec99": 1,
+      "e79e8292-5351-45b4-b502-3518deb17735": 1
+    },
+    "notes": "expected fail: aggressive price ceiling against a catalog where most prices are unset (0.0)"
+  },
+  {
+    "id": "q054",
+    "query": "sunglasses under ₹1000",
+    "intent": {
+      "product_type": "sunglasses",
+      "price_max": 1000
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q055",
+    "query": "watch under ₹1500",
+    "intent": {
+      "product_type": "watch",
+      "price_max": 1500
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q056",
+    "query": "co-ord set under ₹1000",
+    "intent": {
+      "product_type": "co-ord-set",
+      "price_max": 1000
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q057",
+    "query": "festive kurti",
+    "intent": {
+      "product_type": "kurti",
+      "occasion": "festive"
+    },
+    "relevant": {
+      "fdcb09ba-773b-42d1-ad7b-33f7ecc95438": 1,
+      "9d370732-1675-446f-9ab7-22cf99c64af8": 1,
+      "67171189-1cff-4579-a5da-cb0837504432": 1,
+      "29309e51-6c35-486e-b9be-96619642cf78": 1,
+      "3393e00a-d822-48c5-86a5-665f1ca05c61": 1,
+      "69916ec0-abe9-421c-8c6f-3ee298d07beb": 1,
+      "8010e89b-2a49-43c2-ae88-17d245e0d6b8": 2,
+      "88f41b18-c7dd-44b5-bce8-7b234b0a4f3c": 1,
+      "753d2c88-cf3b-4d2a-bf08-c9b7d33cf7c2": 1,
+      "e2f750f2-4cf3-4429-829a-847922da7558": 1,
+      "37ef794f-af66-47d4-a99d-562085437314": 1,
+      "95ab79b8-0a5b-4e22-b41c-deab8bba37af": 1,
+      "ff6f4a03-eba6-490c-9745-fec4cfba1b4f": 1,
+      "3c96d3ba-c2a3-4901-9d2a-a0f868b48f66": 1
+    }
+  },
+  {
+    "id": "q058",
+    "query": "party wear dress",
+    "intent": {
+      "product_type": "dress",
+      "occasion": "party"
+    },
+    "relevant": {
+      "3d5741c2-077c-452c-8d67-51bd5b8c085f": 1,
+      "e3dc3a24-5f38-4c61-8fc8-a88402ecd370": 1,
+      "e11fb2a3-b639-4532-a58a-b712f38f2ec0": 1,
+      "b109015a-c105-40ab-82f2-41b6e3d2694e": 2,
+      "f25450cd-9dc9-4f79-bf6a-07acdaae157e": 1,
+      "c1b38b78-39df-41bd-ac35-d2ae5829a3c3": 1,
+      "4eb96801-d105-4651-9548-04cd7b0b817e": 1,
+      "6038d0b0-7b6e-4101-9376-b11e1b318f5d": 1,
+      "f00ebbcf-a117-4d3c-b544-8bcb972538c0": 1,
+      "c959827d-c92e-4260-831c-9b764f46dc00": 1,
+      "05ab00b6-cca1-4e95-a675-b051bd3388a7": 1,
+      "548b1615-aeb6-4407-b1ad-e633de8f88cb": 1,
+      "afc46dd4-5395-4e75-a650-e642b2dbe5b9": 1,
+      "62806ef6-bca3-4cc2-a428-397f32de7048": 1
+    }
+  },
+  {
+    "id": "q059",
+    "query": "wedding guest outfit",
+    "intent": {
+      "occasion": "wedding"
+    },
+    "relevant": {},
+    "notes": "expected fail: no dedicated wedding-occasion taxonomy or tagging exists; query is also unusually vague"
+  },
+  {
+    "id": "q060",
+    "query": "everyday top",
+    "intent": {
+      "product_type": "top",
+      "occasion": "everyday"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q061",
+    "query": "office wear top",
+    "intent": {
+      "product_type": "top",
+      "occasion": "office"
+    },
+    "relevant": {},
+    "notes": "soft signal only: 'office'/'formal' is not a hard filter, and catalog skews casual/ethnic"
+  },
+  {
+    "id": "q062",
+    "query": "date night dress",
+    "intent": {
+      "product_type": "dress",
+      "occasion": "date night"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q063",
+    "query": "casual weekend top",
+    "intent": {
+      "product_type": "top",
+      "occasion": "casual"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q064",
+    "query": "going out top",
+    "intent": {
+      "product_type": "top",
+      "occasion": "going out"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q065",
+    "query": "gifting jewellery",
+    "intent": {
+      "product_type": "jewellery",
+      "occasion": "gifting"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q066",
+    "query": "festive jewellery",
+    "intent": {
+      "product_type": "jewellery",
+      "occasion": "festive"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q067",
+    "query": "BYUTIFY kurti",
+    "intent": {
+      "product_type": "kurti",
+      "brand": "BYUTIFY"
+    },
+    "relevant": {
+      "67171189-1cff-4579-a5da-cb0837504432": 2,
+      "29309e51-6c35-486e-b9be-96619642cf78": 2,
+      "2bf00190-3101-4869-a2c4-f86012f2e378": 1,
+      "753d2c88-cf3b-4d2a-bf08-c9b7d33cf7c2": 2,
+      "e2f750f2-4cf3-4429-829a-847922da7558": 2,
+      "3393e00a-d822-48c5-86a5-665f1ca05c61": 2
+    }
+  },
+  {
+    "id": "q068",
+    "query": "TheSecondSkin top",
+    "intent": {
+      "product_type": "top",
+      "brand": "TheSecondSkin"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q069",
+    "query": "Kajrakh dress",
+    "intent": {
+      "product_type": "dress",
+      "brand": "Kajrakh"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q070",
+    "query": "Fashion Capital top",
+    "intent": {
+      "product_type": "top",
+      "brand": "Fashion Capital"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q071",
+    "query": "gamishcreations kurti",
+    "intent": {
+      "product_type": "kurti",
+      "brand": "gamishcreations"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q072",
+    "query": "toolboxraw jewellery",
+    "intent": {
+      "product_type": "jewellery",
+      "brand": "toolboxraw"
+    },
+    "relevant": {
+      "95af4d8e-d928-4739-8540-0feb9de0d883": 2
+    }
+  },
+  {
+    "id": "q073",
+    "query": "klane.in sneakers",
+    "intent": {
+      "product_type": "sneakers",
+      "brand": "klane.in"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q074",
+    "query": "lilobysneha dress",
+    "intent": {
+      "product_type": "dress",
+      "brand": "lilobysneha"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q075",
+    "query": "black women's top",
+    "intent": {
+      "product_type": "top",
+      "audience": "women",
+      "colour": "black"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q076",
+    "query": "women's oversized top",
+    "intent": {
+      "product_type": "top",
+      "audience": "women",
+      "style": "oversized"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q077",
+    "query": "women's minimalist necklace",
+    "intent": {
+      "product_type": "necklace",
+      "audience": "women",
+      "style": "minimalist"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q078",
+    "query": "women's black dress",
+    "intent": {
+      "product_type": "dress",
+      "audience": "women",
+      "colour": "black"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q079",
+    "query": "women's ethnic kurti",
+    "intent": {
+      "product_type": "kurti",
+      "audience": "women",
+      "style": "ethnic"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q080",
+    "query": "unisex black hoodie",
+    "intent": {
+      "product_type": "hoodie",
+      "audience": "unisex",
+      "colour": "black"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q081",
+    "query": "women's gold earrings",
+    "intent": {
+      "product_type": "earrings",
+      "audience": "women",
+      "colour": "gold"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q082",
+    "query": "women's boho jewellery",
+    "intent": {
+      "product_type": "jewellery",
+      "audience": "women",
+      "style": "boho"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q083",
+    "query": "women's classic watch",
+    "intent": {
+      "product_type": "watch",
+      "audience": "women",
+      "style": "classic"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q084",
+    "query": "women's party dress",
+    "intent": {
+      "product_type": "dress",
+      "audience": "women",
+      "style": "party"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q085",
+    "query": "jeans",
+    "intent": {
+      "product_type": "jeans"
+    },
+    "relevant": {},
+    "notes": "expected weak: only ~6 jeans rows total (5 women, 1 men) across the entire catalog"
+  },
+  {
+    "id": "q086",
+    "query": "women's jeans",
+    "intent": {
+      "product_type": "jeans",
+      "audience": "women"
+    },
+    "relevant": {},
+    "notes": "expected weak: only 5 women-jeans rows exist, 0 confirmed high-confidence"
+  },
+  {
+    "id": "q087",
+    "query": "wallet",
+    "intent": {
+      "product_type": "wallet"
+    },
+    "relevant": {},
+    "notes": "expected weak: only 1 wallet row exists catalog-wide"
+  },
+  {
+    "id": "q088",
+    "query": "co-ord set",
+    "intent": {
+      "product_type": "co-ord-set"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q089",
+    "query": "skirt",
+    "intent": {
+      "product_type": "skirt"
+    },
+    "relevant": {},
+    "notes": "expected weak: only 2 women-skirts-shorts rows exist catalog-wide"
+  },
+  {
+    "id": "q090",
+    "query": "home decor item",
+    "intent": {
+      "product_type": "home-decor"
+    },
+    "relevant": {}
+  },
+  {
+    "id": "q091",
+    "query": "vintage denim jacket",
+    "intent": {
+      "product_type": "jacket",
+      "style": "vintage",
+      "material": "denim"
+    },
+    "relevant": {},
+    "notes": "expected fail: 'jacket' is not a represented product type and denim inventory is near-zero"
+  },
+  {
+    "id": "q092",
+    "query": "affordable formal wear under ₹500",
+    "intent": {
+      "style": "formal",
+      "price_max": 500
+    },
+    "relevant": {},
+    "notes": "expected weak: 'formal wear' is a soft style signal only (not hard-filtered) and ₹500 is far below where most real prices sit"
+  },
+  {
+    "id": "q093",
+    "query": "men's gym wear",
+    "intent": {
+      "product_type": "activewear",
+      "audience": "men",
+      "style": "gym"
+    },
+    "relevant": {},
+    "notes": "expected fail: near-zero men's-audience data plus 'gym' is a soft style term only, not a hard filter"
+  },
+  {
+    "id": "q094",
+    "query": "leather sandals",
+    "intent": {
+      "product_type": "sandals",
+      "material": "leather"
+    },
+    "relevant": {},
+    "notes": "expected fail: 'sandals'/'shoes' outside sneakers has no real category presence in this catalog"
+  },
+  {
+    "id": "q095",
+    "query": "silk saree",
+    "intent": {
+      "product_type": "saree",
+      "material": "silk"
+    },
+    "relevant": {
+      "1c3efe54-670b-4084-9b6c-091cbe9964f3": 1,
+      "5f77564d-548d-402c-9d24-15d2b8e4b92b": 2,
+      "bb188bda-5f78-4c64-95ec-9c87ec3e7d23": 2,
+      "2054c7a3-4f9b-48e0-ad0d-d2df800d12d6": 2,
+      "c8bea7d9-ef32-429c-a56c-4654587f78af": 2,
+      "d48237df-e9d8-4db1-9f31-a194d2bd131b": 2,
+      "ed7032b9-edba-48c2-a08c-348c944f947d": 2,
+      "ecfc2ff8-68a3-44c0-b495-e3b9f0a7c451": 2,
+      "8160aeff-b005-4ca6-b9c1-8f0c15e092b9": 1
+    },
+    "notes": "expected fail: 'saree' does not exist anywhere in the current product taxonomy"
+  },
+  {
+    "id": "q096",
+    "query": "kids clothing",
+    "intent": {
+      "audience": "kids"
+    },
+    "relevant": {},
+    "notes": "expected fail: catalog is exclusively adult fashion; no kids category or audience value exists"
+  },
+  {
+    "id": "q097",
+    "query": "maternity wear",
+    "intent": {
+      "occasion": "maternity"
+    },
+    "relevant": {},
+    "notes": "expected weak: no maternity category, tagging, or product type exists in this catalog"
+  },
+  {
+    "id": "q098",
+    "query": "swimwear",
+    "intent": {
+      "product_type": "swimwear"
+    },
+    "relevant": {},
+    "notes": "expected fail: swimwear is not a represented product type in this catalog"
+  },
+  {
+    "id": "q099",
+    "query": "plus size dress",
+    "intent": {
+      "product_type": "dress",
+      "fit": "plus size"
+    },
+    "relevant": {},
+    "notes": "expected weak: no size/fit metadata is captured anywhere in the catalog, so this cannot be filtered on at all"
+  },
+  {
+    "id": "q100",
+    "query": "men's formal shirt under ₹1000",
+    "intent": {
+      "product_type": "shirt",
+      "audience": "men",
+      "style": "formal",
+      "price_max": 1000
+    },
+    "relevant": {},
+    "notes": "expected weak: compounds the men's-audience data gap with a soft style filter and a price ceiling"
+  }
+]

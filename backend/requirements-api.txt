@@ -1,0 +1,17 @@
+# API runtime only -- what the deployed search API installs. No torch / transformers / sentence-transformers.
+# (Ingestion, ONNX export and parity checks use backend/requirements.txt, which keeps the full stack.)
+fastapi==0.141.1
+uvicorn[standard]==0.52.3
+python-multipart==0.0.32
+pydantic==2.13.4
+python-dotenv==1.2.2
+httpx==0.28.1
+supabase==2.31.0
+
+# Query-time text encoder (backend/ml/onnx_text_encoder.py)
+onnxruntime==1.30.0
+tokenizers==0.22.2
+numpy==2.5.2
+
+# Image-upload validation
+Pillow==12.3.0
