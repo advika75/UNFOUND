@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "./index.css";
 import "./overrides.css";
 import { supabase } from "./lib/supabase";
+import { requireEnv } from "./lib/env";
 import AuthPanel from "./components/AuthPanel";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+const API_BASE_URL = requireEnv("VITE_API_BASE_URL");
 const DOLU_API_URL =
   import.meta.env.VITE_DOLU_API_URL || "http://127.0.0.1:8001";
 // The DOLU chat service is not part of this deployment; the chat entry point stays hidden unless VITE_ENABLE_CHAT=true.
