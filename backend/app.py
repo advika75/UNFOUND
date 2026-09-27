@@ -175,6 +175,30 @@ def _get_required_env(name: str) -> str:
     return value
 
 
+_SECRET_CACHE: dict[str, str] = {}
+
+
+def _resolve_secret(name: str) -> str | None:
+    """`name`'s value directly if set (local dev / tests: unchanged), else resolve
+    `{name}_SSM_PARAM` (an SSM parameter *path*, never a value) via boto3 SSM
+    GetParameter with decryption, memoized per path so repeated calls (e.g. the
+    per-request admin-key check) only hit SSM once per container."""
+    direct = os.getenv(name)
+    if direct:
+        return direct
+    ssm_path = os.getenv(f"{name}_SSM_PARAM")
+    if not ssm_path:
+        return None
+    if ssm_path not in _SECRET_CACHE:
+        import boto3
+
+        t0 = time.monotonic()
+        client = boto3.client("ssm")
+        _SECRET_CACHE[ssm_path] = client.get_parameter(Name=ssm_path, WithDecryption=True)["Parameter"]["Value"]
+        logging.info("Resolved %s from SSM (%s) in %.0f ms.", name, ssm_path, (time.monotonic() - t0) * 1000)
+    return _SECRET_CACHE[ssm_path]
+
+
 # Which encoders serve queries. "onnx" (default) is torch-free (backend/ml/onnx_*_encoder.py); "torch" loads the
 # full SentenceTransformer, for local parity checks only. Text and image are configured independently.
 TEXT_ENCODER = os.getenv("TEXT_ENCODER", "onnx")
@@ -318,7 +342,11 @@ async def lifespan(app: FastAPI):
         _get_required_env("SUPABASE_URL"),
         os.getenv("SUPABASE_ANON_KEY") or _get_required_env("SUPABASE_KEY"),
     )
-    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    try:
+        service_key = _resolve_secret("SUPABASE_SERVICE_ROLE_KEY")
+    except Exception:
+        logging.exception("Could not resolve SUPABASE_SERVICE_ROLE_KEY; personalization stays unavailable.")
+        service_key = None
     app.state.personalization = (
         create_supabase_client(_get_required_env("SUPABASE_URL"), service_key)
         if service_key else None
@@ -1171,7 +1199,11 @@ def build_catalog_scale_report(brands: list[dict[str, Any]], products: list[dict
 
 
 def require_admin_key(provided: str | None) -> None:
-    expected = os.getenv("ADMIN_API_KEY")
+    try:
+        expected = _resolve_secret("ADMIN_API_KEY")
+    except Exception:
+        logging.exception("Could not resolve ADMIN_API_KEY.")
+        expected = None
     if not expected:
         raise HTTPException(status_code=503, detail="ADMIN_API_KEY is not configured. Administrative API access is disabled.")
     if not provided or provided != expected:

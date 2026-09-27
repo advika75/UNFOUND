@@ -16,6 +16,7 @@ from backend.app import (
     _cache_put,
     _discovery_brand,
     _discovery_product,
+    _resolve_secret,
     app,
     public_search_products,
 )
@@ -185,3 +186,85 @@ def test_env_example_ranking_weights_match_code_defaults():
     example = dict(re.findall(r"^((?:TEXT|IMAGE)_WEIGHT_\w+)=([\d.]+)", (ROOT / "backend/.env.example").read_text(), re.M))
     code = dict(re.findall(r'"((?:TEXT|IMAGE)_WEIGHT_\w+)", "([\d.]+)"', (ROOT / "backend/app.py").read_text()))
     assert code and example == code
+
+
+@pytest.fixture(autouse=True)
+def _clear_secret_cache():
+    app_module._SECRET_CACHE.clear()
+    yield
+    app_module._SECRET_CACHE.clear()
+
+
+def test_resolve_secret_prefers_direct_env_var_and_never_touches_ssm(monkeypatch):
+    monkeypatch.setenv("MY_SECRET", "plain-value")
+    monkeypatch.delenv("MY_SECRET_SSM_PARAM", raising=False)
+    monkeypatch.setattr(
+        "boto3.client", lambda *a, **k: (_ for _ in ()).throw(AssertionError("boto3 should not be called"))
+    )
+    assert _resolve_secret("MY_SECRET") == "plain-value"
+
+
+def test_resolve_secret_returns_none_when_neither_is_set(monkeypatch):
+    monkeypatch.delenv("MY_SECRET", raising=False)
+    monkeypatch.delenv("MY_SECRET_SSM_PARAM", raising=False)
+    assert _resolve_secret("MY_SECRET") is None
+
+
+def test_resolve_secret_fetches_from_ssm_path_and_caches_across_calls(monkeypatch):
+    monkeypatch.delenv("MY_SECRET", raising=False)
+    monkeypatch.setenv("MY_SECRET_SSM_PARAM", "/unfound/prod/MY_SECRET")
+
+    calls = []
+
+    class FakeClient:
+        def get_parameter(self, Name, WithDecryption):
+            calls.append((Name, WithDecryption))
+            return {"Parameter": {"Value": "fetched-from-ssm"}}
+
+    monkeypatch.setattr("boto3.client", lambda service: FakeClient())
+
+    assert _resolve_secret("MY_SECRET") == "fetched-from-ssm"
+    assert _resolve_secret("MY_SECRET") == "fetched-from-ssm"
+    assert calls == [("/unfound/prod/MY_SECRET", True)]  # only the first call actually hit SSM
+
+
+def test_lifespan_degrades_gracefully_when_ssm_resolution_fails(monkeypatch):
+    """A boto3/SSM failure resolving SUPABASE_SERVICE_ROLE_KEY must not crash the whole
+    startup (and take text search down with it) -- only personalization should degrade."""
+    monkeypatch.setattr(app_module, "load_text_encoder", lambda: object())
+    monkeypatch.setattr(app_module, "check_image_encoder_artifact", lambda: None)
+    monkeypatch.setattr(app_module, "create_supabase_client", lambda url, key: SimpleNamespace(url=url, key=key))
+    monkeypatch.setattr(app_module, "warm_up_search_path", lambda *a, **k: {})
+    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setenv("SUPABASE_KEY", "anon-key")
+
+    def boom(name):
+        assert name == "SUPABASE_SERVICE_ROLE_KEY"
+        raise RuntimeError("SSM unreachable")
+
+    monkeypatch.setattr(app_module, "_resolve_secret", boom)
+
+    import asyncio
+
+    async def run():
+        async with app_module.lifespan(app) as _:
+            pass
+
+    asyncio.run(run())  # must not raise
+    assert app.state.personalization is None
+
+
+def test_resolve_secret_caches_independently_per_ssm_path(monkeypatch):
+    monkeypatch.delenv("SECRET_A", raising=False)
+    monkeypatch.delenv("SECRET_B", raising=False)
+    monkeypatch.setenv("SECRET_A_SSM_PARAM", "/unfound/prod/A")
+    monkeypatch.setenv("SECRET_B_SSM_PARAM", "/unfound/prod/B")
+
+    class FakeClient:
+        def get_parameter(self, Name, WithDecryption):
+            return {"Parameter": {"Value": f"value-for-{Name}"}}
+
+    monkeypatch.setattr("boto3.client", lambda service: FakeClient())
+
+    assert _resolve_secret("SECRET_A") == "value-for-/unfound/prod/A"
+    assert _resolve_secret("SECRET_B") == "value-for-/unfound/prod/B"

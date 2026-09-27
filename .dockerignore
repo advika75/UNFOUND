@@ -1,0 +1,19 @@
+# Only trims the build context sent to the daemon; the Dockerfile's explicit COPY
+# instructions (not this file) are what actually decide what lands in the image.
+.git
+node_modules
+Niche_brand
+data
+scraper
+training
+frontend
+tests
+backend/eval
+backend/requirements.txt
+__pycache__
+**/__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.env
+.env.*
