@@ -4,6 +4,8 @@ import csv
 from dataclasses import dataclass
 from typing import Any
 
+from starlette.requests import Request
+
 from backend.app import app, brands_health, catalog_health, catalog_issues, discover, list_brand_products, list_brands, list_products, recommend
 from training.scraper_pipeline import ScrapedInstagramPost, dedupe_posts, parse_follower_count, run_pipeline, validate_category
 
@@ -253,7 +255,7 @@ def test_instagram_product_ingestion_is_searchable(monkeypatch, tmp_path) -> Non
     app.state.clip_model = fake_model
 
     body = __import__("asyncio").run(
-        discover(text_query="linen dress", image_file=None, category_id=None)
+        discover(request=Request({"type": "http", "headers": []}), text_query="linen dress", image_file=None, category_id=None)
     )
 
     assert body["results"][0]["product_url"] == "https://www.instagram.com/p/test-product/"
@@ -276,6 +278,7 @@ def test_instagram_product_ingestion_is_searchable(monkeypatch, tmp_path) -> Non
 
     filtered = __import__("asyncio").run(
         discover(
+            request=Request({"type": "http", "headers": []}),
             text_query="linen dress",
             image_file=None,
             category_id=None,

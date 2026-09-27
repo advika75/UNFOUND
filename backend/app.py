@@ -12,7 +12,7 @@ from typing import Any, Callable
 from uuid import UUID
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from typing import TYPE_CHECKING
 
@@ -30,6 +30,7 @@ from backend.supabase_compat import SupabaseRestClient, create_supabase_client
 from backend.catalog_quality import build_catalog_report, load_catalog
 from backend.personalization import (
     load_personalization_context,
+    optional_user_id,
     personalization_match_score,
     router as personalization_router,
 )
@@ -80,6 +81,10 @@ RECOMMEND_BRAND_LIMIT = 6
 RECOMMEND_MATCH_THRESHOLD = 0.3
 EMBEDDING_DIMENSIONS = 512
 SEARCH_CACHE_TTL_SECONDS = 300
+# A warm Lambda container can live for hours, so both caches are bounded (LRU) as well as TTL'd.
+# Ceiling: ~30 KB per search entry (20 hydrated rows) -> 256 entries ~ 8 MB; ~60 KB per discovery
+# payload -> 64 entries ~ 4 MB.
+SEARCH_CACHE_MAX_ENTRIES = 256
 SEARCH_CACHE: dict[tuple[Any, ...], tuple[float, list[dict[str, Any]]]] = {}
 # "vector" (default, unchanged behavior) or "hybrid" (fuse vector + lexical via RRF).
 # Only affects text-mode search; image search always stays vector-only since the
@@ -91,9 +96,30 @@ SEARCH_MODE = os.getenv("SEARCH_MODE", "vector")
 RERANK = os.getenv("RERANK", "off")
 HYBRID_RETRIEVER_LIMIT = 100
 HYBRID_RRF_K = 60
+DISCOVERY_FEED_CACHE_MAX_ENTRIES = 64
 DISCOVERY_FEED_CACHE: dict[tuple[Any, ...], tuple[float, dict[str, Any]]] = {}
 DISCOVERY_FEED_CACHE_TTL = int(os.getenv("DISCOVERY_FEED_CACHE_TTL", "60"))
 PERSONALIZATION_WEIGHT = float(os.getenv("PERSONALIZATION_WEIGHT", "0.10"))
+# Comma-separated browser origins allowed to call the API (CORS lives here, not in the Function URL config).
+ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",") if origin.strip()]
+
+
+def _cache_get(cache: dict[Any, tuple[float, Any]], key: Any, ttl: float) -> Any | None:
+    entry = cache.pop(key, None)
+    if entry is None:
+        return None
+    if time.monotonic() - entry[0] >= ttl:
+        return None
+    cache[key] = entry
+    return entry[1]
+
+
+def _cache_put(cache: dict[Any, tuple[float, Any]], key: Any, value: Any, max_entries: int) -> None:
+    cache.pop(key, None)
+    cache[key] = (time.monotonic(), value)
+    while len(cache) > max_entries:
+        del cache[next(iter(cache))]
+
 
 # Final-score ties/near-ties, for both apply_final_ranking's default sort and rerank_candidates
 # (backend/search/rerank.py imports these two). Ranking must not be decidable at the scale of
@@ -315,7 +341,7 @@ app = FastAPI(
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -882,9 +908,9 @@ def run_match_products_rpc(
         tuple(rrf_weights) if rrf_weights else None,
         rerank_mode,
     )
-    cached = SEARCH_CACHE.get(cache_key)
-    if cached and time.monotonic() - cached[0] < SEARCH_CACHE_TTL_SECONDS:
-        return cached[1]
+    cached = _cache_get(SEARCH_CACHE, cache_key, SEARCH_CACHE_TTL_SECONDS)
+    if cached is not None:
+        return cached
 
     use_hybrid = retrieval_mode == "hybrid" and search_mode == "text" and query_text
 
@@ -995,7 +1021,7 @@ def run_match_products_rpc(
                 attributes["gender"] = gender
             survivors = rerank_candidates(survivors, attributes)
         ranked = survivors[:result_limit]
-    SEARCH_CACHE[cache_key] = (time.monotonic(), ranked)
+    _cache_put(SEARCH_CACHE, cache_key, ranked, SEARCH_CACHE_MAX_ENTRIES)
     return ranked
 
 
@@ -1347,10 +1373,10 @@ def _discovery_brand(row: dict[str, Any]) -> dict[str, Any]:
     return public
 
 
-def _load_discovery(category: str | None = None, product_type: str | None = None, limit: int = 16, profile_id: str | None = None) -> dict[str, Any]:
-    cache_key = (category, product_type, limit, profile_id)
-    cached = DISCOVERY_FEED_CACHE.get(cache_key)
-    if cached and time.monotonic() - cached[0] <= DISCOVERY_FEED_CACHE_TTL: return cached[1]
+def _load_discovery(category: str | None = None, product_type: str | None = None, limit: int = 16, user_id: UUID | None = None) -> dict[str, Any]:
+    cache_key = (category, product_type, limit, str(user_id) if user_id else None)
+    cached = _cache_get(DISCOVERY_FEED_CACHE, cache_key, DISCOVERY_FEED_CACHE_TTL)
+    if cached is not None: return cached
     supabase: Client | SupabaseRestClient = app.state.supabase
     try:
         products = [row for row in fetch_all(supabase, "products") if row.get("catalog_status") != "NON_PRODUCT"]
@@ -1360,8 +1386,9 @@ def _load_discovery(category: str | None = None, product_type: str | None = None
     except Exception as error:
         raise HTTPException(status_code=502, detail="Discovery feeds are temporarily unavailable.") from error
     preferences = None
-    if profile_id:
-        try: preferences = load_personalization_context(supabase, profile_id)
+    personalization_client = getattr(app.state, "personalization", None)
+    if user_id is not None and personalization_client is not None:
+        try: preferences = load_personalization_context(personalization_client, user_id)
         except Exception: preferences = None
     sections = discovery_sections(products, brands, supabase_url=os.getenv("SUPABASE_URL", ""), interactions=interactions, preferences=preferences, category=category, product_type=product_type, limit=max(1,min(limit,50)))
     payload = {key:[_discovery_product(row) for row in sections[key]] for key in ("hidden_gems","trending","fresh_drops","new_discoveries","missed")}
@@ -1372,12 +1399,12 @@ def _load_discovery(category: str | None = None, product_type: str | None = None
     payload["trending_brands"] = payload["emerging_brands"]
     if os.getenv("ENVIRONMENT", "development").lower() != "production":
         payload["discovery_diagnostics"] = {"candidates": len(products), "eligible": sections["eligible_candidates"]}
-    DISCOVERY_FEED_CACHE[cache_key] = (time.monotonic(), payload)
+    _cache_put(DISCOVERY_FEED_CACHE, cache_key, payload, DISCOVERY_FEED_CACHE_MAX_ENTRIES)
     return payload
 
 
 @app.get("/api/discovery/feeds")
-async def discovery_feeds(category: str | None = None, product_type: str | None = None, limit: int = 16, profile_id: str | None = None): return _load_discovery(category, product_type, limit, profile_id)
+async def discovery_feeds(request: Request, category: str | None = None, product_type: str | None = None, limit: int = 16): return _load_discovery(category, product_type, limit, optional_user_id(request))
 
 @app.get("/api/discovery/hidden-gems")
 async def hidden_gems(category: str | None = None, product_type: str | None = None, limit: int = 16): return {"products":_load_discovery(category, product_type, limit)["hidden_gems"]}
@@ -1556,6 +1583,7 @@ async def similar_brands_for_brand(brand_id: str):
 
 @app.post("/api/discover")
 async def discover(
+    request: Request,
     text_query: str | None = Form(default=None),
     image_file: UploadFile | None = File(default=None),
     category_id: int | None = Form(default=None),
@@ -1567,7 +1595,6 @@ async def discover(
     brand: str | None = Form(default=None),
     gender: str | None = Form(default=None),
     sort_by: str | None = Form(default=None),
-    profile_id: UUID | None = Form(default=None),
     debug: bool = Form(default=False),
 ):
     try:
@@ -1605,8 +1632,9 @@ async def discover(
     if resolved_min_price is None:
         resolved_min_price = query_attributes.get("min_price")
     personalization_context = None
-    if profile_id is not None and getattr(app.state, "personalization", None) is not None:
-        personalization_context = load_personalization_context(app.state.personalization, profile_id)
+    user_id = optional_user_id(request)
+    if user_id is not None and getattr(app.state, "personalization", None) is not None:
+        personalization_context = load_personalization_context(app.state.personalization, user_id)
 
     results = run_match_products_rpc(
         supabase=supabase,

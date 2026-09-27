@@ -8,6 +8,8 @@ const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 const DOLU_API_URL =
   import.meta.env.VITE_DOLU_API_URL || "http://127.0.0.1:8001";
+// The DOLU chat service is not part of this deployment; the chat entry point stays hidden unless VITE_ENABLE_CHAT=true.
+const CHAT_ENABLED = import.meta.env.VITE_ENABLE_CHAT === "true";
 const STORAGE_KEY = "unfound_guest_state_v1";
 const PROFILE_KEY = "unfound_profile_id_v1";
 const PROFILE_ID = (() => {
@@ -38,6 +40,13 @@ async function personalizationRequest(path = "", options = {}) {
   );
   if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail || "Personalization unavailable");
   return response.json();
+}
+
+// Identity for search/discovery personalization comes only from the verified access token
+// (never from a client-supplied id); signed-out callers just get unpersonalized results.
+async function optionalAuthHeaders() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session ? { Authorization: `Bearer ${session.access_token}` } : {};
 }
 
 function useSupabaseAuth() {
@@ -221,8 +230,8 @@ function normalizeBrand(row) {
   };
 }
 
-async function fetchJson(path, signal) {
-  const response = await fetch(`${API_BASE_URL}${path}`, { signal });
+async function fetchJson(path, signal, headers) {
+  const response = await fetch(`${API_BASE_URL}${path}`, { signal, headers });
   const data = await response.json().catch(() => ({}));
   if (!response.ok)
     throw new Error(data.detail || `Request failed (${response.status})`);
@@ -400,7 +409,7 @@ function Nav({ page, go, savedCount }) {
     ["search", "Search"],
     ["dolu", "Ask DOLU"],
     ["about", "About"],
-  ];
+  ].filter(([id]) => id !== "dolu" || CHAT_ENABLED);
   return (
     <>
       <header className="unfound-nav">
@@ -638,7 +647,8 @@ function DiscoverPage({
   const [discoveryFeeds, setDiscoveryFeeds] = useState({ fresh_drops: [], hidden_gems: [], trending: [], missed: [], new_discoveries: [], stylish_tops: [], modern_ethnic: [], trending_brands: [], emerging_brands: [] });
   useEffect(() => {
     const controller = new AbortController();
-    fetchJson(`/api/discovery/feeds?profile_id=${encodeURIComponent(PROFILE_ID)}`, controller.signal)
+    optionalAuthHeaders()
+      .then((headers) => fetchJson("/api/discovery/feeds", controller.signal, headers))
       .then((data) => setDiscoveryFeeds({
         fresh_drops: (data.fresh_drops || []).map(normalizeProduct),
         hidden_gems: (data.hidden_gems || []).map(normalizeProduct),
@@ -1215,7 +1225,6 @@ function SearchPage({ seedQuery, state, actions, track }) {
     setLoading(true);
     setError("");
     const body = new FormData();
-    body.append("profile_id", PROFILE_ID);
     if (image) body.append("image_file", image);
     else body.append("text_query", query.trim());
     if (category) body.append("category_slug", category);
@@ -1227,6 +1236,7 @@ function SearchPage({ seedQuery, state, actions, track }) {
     try {
       const response = await fetch(`${API_BASE_URL}/api/discover`, {
         method: "POST",
+        headers: await optionalAuthHeaders(),
         body,
         signal: controller.signal,
       });
@@ -2038,7 +2048,7 @@ export default function App() {
           track={track}
         />
       );
-    if (page === "dolu") return <DoluPage state={state} actions={actions} />;
+    if (page === "dolu" && CHAT_ENABLED) return <DoluPage state={state} actions={actions} />;
     if (page === "moodboards")
       return (
         <MoodboardsPage

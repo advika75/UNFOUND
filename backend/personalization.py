@@ -72,6 +72,17 @@ def _current_user_id(request: Request) -> UUID:
     return UUID(user_id)
 
 
+def optional_user_id(request: Request) -> UUID | None:
+    """Verified user id from the bearer token, or None (never raises) so callers can fall back to unpersonalized.
+
+    This is the only way non-personalization endpoints may learn who the caller is: never from a body, form or query field.
+    """
+    try:
+        return _current_user_id(request)
+    except HTTPException:
+        return None
+
+
 def ensure_profile(client: Any, user_id: UUID) -> None:
     client.table("user_profiles").upsert(
         {"user_id": str(user_id)}, on_conflict="user_id"
