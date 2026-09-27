@@ -1,0 +1,64 @@
+# syntax=docker/dockerfile:1
+#
+# Hugging Face Spaces (Docker SDK) image for the UNFOUND search API. This is the
+# long-running-container counterpart to the Lambda `Dockerfile` at the repo root --
+# that one is untouched and still what AWS deployment uses. Differences from it, and
+# why, are called out inline below. Build from the repo root:
+#
+#   docker build -f Dockerfile.spaces -t unfound-api-spaces .
+#
+# Same reasoning as the Lambda Dockerfile for why the ONNX artifacts are COPIED here
+# rather than exported at build time: exporting needs the full torch/transformers
+# stack plus a live Hugging Face Hub download, the export isn't bit-reproducible
+# anyway (verified by cosine similarity, not hash -- see backend/ml/verify_onnx_parity.py
+# and verify_onnx_image_parity.py), and Spaces builds shouldn't depend on an external
+# service being reachable. Rebuild + verify with the same two export + two verify
+# commands documented in the Lambda Dockerfile.
+
+ARG PYTHON_VERSION=3.12
+
+# ---- deps: install API-only requirements (no torch/transformers/sentence-transformers,
+# no mangum -- this is a plain long-running ASGI process under uvicorn, not Lambda) ----
+FROM python:${PYTHON_VERSION}-slim AS deps
+COPY backend/requirements-api.txt /tmp/requirements-api.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --prefix=/install -r /tmp/requirements-api.txt
+
+# ---- final: assemble the runtime image ----
+FROM python:${PYTHON_VERSION}-slim
+
+# Spaces convention: run as a non-root user (uid 1000), with its own HOME so any
+# incidental cache-directory writes by a dependency don't hit a read-only /root.
+RUN useradd -m -u 1000 user
+ENV HOME=/home/user
+WORKDIR /app
+
+COPY --from=deps /install /usr/local
+
+# Baked-in, pre-exported and correctness-verified ONNX artifacts (~581 MB combined).
+# Copied first, as its own layer: it changes only when the model is re-exported, so
+# ordinary code changes below don't invalidate this layer or re-push it to the registry.
+COPY backend/ml/artifacts backend/ml/artifacts
+
+# Application code -- copied explicitly (not `COPY backend/`) so it never re-copies the
+# artifacts directory above, keeping that large layer's cache intact across code edits.
+COPY backend/__init__.py backend/*.py backend/
+COPY backend/ml/__init__.py backend/ml/*.py backend/ml/
+COPY backend/search backend/search
+
+RUN chown -R user:user /app
+USER user
+
+ENV ENVIRONMENT=production
+# Unlike the Lambda image, this container stays warm for its whole lifetime rather
+# than being torn down after each request, and there's no per-invocation billing or
+# 10s init ceiling to protect -- so the one-time cost of loading the image encoder is
+# worth paying eagerly at startup instead of on whichever request happens to be the
+# first image search after a cold wake (that request would otherwise pay ~3.6s, per
+# the Lambda RIE measurement earlier this session). Recommended for Spaces:
+ENV EAGER_IMAGE_ENCODER=1
+
+# Spaces expect the app on 7860.
+EXPOSE 7860
+
+CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "7860"]

@@ -1,6 +1,26 @@
+---
+title: UNFOUND Search API
+emoji: 🔍
+colorFrom: indigo
+colorTo: pink
+sdk: docker
+dockerfile: Dockerfile.spaces
+app_port: 7860
+pinned: false
+---
+
 # AI Fashion Discovery & Recommendation Platform
 
 AI Fashion Discovery & Recommendation Platform powered by CLIP embeddings, Supabase pgvector, and multimodal search.
+
+## Deployment note: latency
+
+This API is deployed to Hugging Face Spaces, which run in the US/EU. Supabase is in
+ap-northeast-1 (Tokyo), so every database round trip crosses that distance -- expect
+~300ms per round trip and roughly ~1s total search latency, similar to running the API
+locally against the same Supabase project. This is not a bug or a regression; it's the
+cost of Spaces not being co-located with the database (unlike the AWS Lambda deployment
+path, which runs in the same region as Supabase specifically to avoid this).
 
 The platform helps users discover visually and semantically similar fashion products through text search, image search, category filters, and recommendation-style result ranking.
 
