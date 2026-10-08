@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Iterable
 
 
 PRODUCT_FAMILIES: dict[str, dict[str, tuple[str, ...]]] = {
@@ -147,6 +147,50 @@ def type_match(text: str, product_type: str | None) -> bool:
 
 def family_match(text: str, family: str | None) -> bool:
     return not family or any(_contains(text.lower(), term) for term in family_terms(family))
+
+
+def gender_match_score(product: dict[str, Any], requested_gender: str | None) -> float:
+    """The one gender/audience gate every gendered path (search, discovery, category
+    browse) should call -- never reimplement this check separately, it will drift."""
+    if not requested_gender:
+        return 0.5
+    # category_audience comes from categories.audience (e.g. "WOMEN" for the
+    # "Kurtis" category) -- a reliable signal even when the category's own
+    # display name has no literal gender word in it, and far more complete
+    # than the product's own audience column (populated on well under 4% of
+    # rows). Checked first since it's the most trustworthy source.
+    audience = " ".join(str(product.get(field) or "") for field in (
+        "category_audience", "audience", "category", "normalized_main_category", "normalized_subcategory"
+    )).lower()
+    # Word-boundary match, not plain substring: "men" in "women" is True for Python's
+    # `in`, which would wrongly pass a women's-audience row for a men's-gated rail.
+    if _contains(audience, requested_gender):
+        return 1.0
+    if _contains(audience, "unisex"):
+        return 0.75
+    return 0.0
+
+
+def attach_category_audience(
+    products: list[dict[str, Any]], categories: Iterable[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Enrich each product with its own category's audience (categories.audience,
+    joined by category_id) as category_audience -- gender_match_score()'s most
+    trusted signal.
+
+    The search RPCs (match_products, lexical_search_products -- see
+    category_audience_signal_migration.sql) already select this via a SQL join.
+    The discovery and category-browse code paths instead fetch products with a
+    plain, unjoined fetch_all(supabase, "products"), so without this, every row
+    they hand to gender_match_score() is missing that field entirely and falls
+    through to the product's own audience column, which is NULL for ~96% of rows
+    -- not because the signal doesn't exist, but because it was never attached.
+    """
+    audience_by_category_id = {row.get("id"): row.get("audience") for row in categories if row.get("id") is not None}
+    return [
+        {**product, "category_audience": audience_by_category_id.get(product.get("category_id"))}
+        for product in products
+    ]
 
 
 def slugify_type(value: Any) -> str:

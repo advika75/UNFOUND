@@ -179,7 +179,7 @@ def test_category_endpoint_excludes_unrelated_products_and_brands(monkeypatch) -
         "accessories-jewellery": {"id": 50, "slug": "accessories-jewellery", "name": "Jewellery", "parent_id": 40},
     }
     products = [
-        product("Black Straight Leg Jeans", "women's denim", brand_id="jeans-brand", brand_name="Denim Label", category_id=12, classifier_confidence=.97),
+        product("Black Straight Leg Jeans", "women's denim", brand_id="jeans-brand", brand_name="Denim Label", category_id=12, classifier_confidence=.97, audience="women"),
         product("Silver Hoop Earrings", brand_id="jewel-brand", brand_name="Silver Label", category_id=50, classifier_confidence=.98),
         product("Men Oxford Shirt", "men's shirt", brand_id="shirt-brand", brand_name="Menswear", category_id=8, classifier_confidence=.95),
         product("Minimal Analog Watch", brand_id="watch-brand", brand_name="Watch Co", category_id=60, classifier_confidence=.96),
@@ -329,8 +329,8 @@ def test_brand_categories_mark_the_most_supported_category_primary(monkeypatch) 
     }
     monkeypatch.setattr("backend.category_quality.category_map", lambda *_: categories)
     monkeypatch.setattr("backend.category_quality.fetch_all", lambda *_: [
-        product("Kurti One", brand_id="b1", category_id=22, classifier_confidence=.90),
-        product("Kurti Two", brand_id="b1", category_id=22, classifier_confidence=.90),
+        product("Kurti One", brand_id="b1", category_id=22, classifier_confidence=.90, audience="women"),
+        product("Kurti Two", brand_id="b1", category_id=22, classifier_confidence=.90, audience="women"),
         product("Necklace One", brand_id="b1", category_id=18, classifier_confidence=.95),
     ])
     assert rebuild_brand_categories(Supabase()) == 2
@@ -349,6 +349,38 @@ def test_category_support_is_strict_about_audience_and_product_family() -> None:
     assert not product_supports_category(men_shirt, "women-tops", {})
     assert product_supports_category(earrings, "accessories-jewellery", {})
     assert not product_supports_category(earrings, "women-tops", {})
+
+
+def test_category_support_rejects_blank_audience_for_a_gendered_category() -> None:
+    # Real bug: `if required_audience and audience and ...` silently skipped the
+    # gender check whenever audience was blank (common for scraped rows), so a
+    # men-shirts page could show a product with no gender evidence at all. A blank
+    # audience must now be a rejection for a gendered category, not a free pass.
+    blank_audience_shirt = product("Classic Cotton Shirt", audience=None, classifier_confidence=.95)
+    assert not product_supports_category(blank_audience_shirt, "men-shirts", {})
+
+
+def test_category_support_uses_category_audience_when_the_products_own_audience_is_blank() -> None:
+    # Real-world case, not a contrived one: 96% of products have a null `audience`
+    # column, but plenty of them sit in an unambiguously-gendered category (their
+    # category_id maps to a categories row whose own `audience` IS set). Before
+    # attach_category_audience() ran on the fetch path, this product had zero
+    # gender signal (gender_match_score() doesn't read product_name/description,
+    # only audience/category_audience/category/normalized_*) and was wrongly
+    # excluded from its own category's page.
+    from backend.product_taxonomy import attach_category_audience
+
+    # "mens" in the description gives classify_product_category()'s own,
+    # separate text-based audience check enough to confidently resolve
+    # men-shirts -- isolating this test to the category_audience/gender_match_score
+    # gap specifically, not conflating it with that unrelated internal gate.
+    shirt = product("Classic Cotton Shirt", description="mens formal wear shirt", audience=None, classifier_confidence=.95, category_id=8)
+    categories = {"men-shirts": {"id": 8, "slug": "men-shirts", "audience": "MEN"}}
+    assert not product_supports_category(shirt, "men-shirts", categories)
+
+    enriched_shirt = attach_category_audience([shirt], categories.values())[0]
+    assert product_supports_category(enriched_shirt, "men-shirts", categories)
+    assert not product_supports_category(enriched_shirt, "women-tops", categories)
 
 
 def test_main_category_uses_only_validated_descendant_products() -> None:
@@ -448,7 +480,11 @@ def test_production_code_has_no_uncategorized_magic_id() -> None:
     compact_frontend = "".join(frontend.split())
     assert '"uncategorized": {"id": 32' not in scraper
     assert "CATEGORY_NAMES_BY_ID" not in app_source
-    assert 'body.append("category_slug",category)' in compact_frontend
+    # The category filter is sent to /api/discover by slug, built from a
+    # data-driven field table (SEARCH_FILTER_FIELDS) rather than a one-off
+    # literal append -- still never a raw numeric category_id.
+    assert 'formKey:"category_slug"' in compact_frontend
+    assert 'formKey:"category_id"' not in compact_frontend
     assert 'body.append("category_id",category)' not in compact_frontend
 
 

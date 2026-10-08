@@ -5,9 +5,9 @@ from backend.app import (
     apply_final_ranking,
     deterministic_rank_key,
     extract_query_attributes,
-    gender_match_score,
     split_search_groups,
 )
+from backend.product_taxonomy import gender_match_score
 
 
 def candidate(name: str, category: str, similarity: float, **extra):

@@ -3,7 +3,7 @@ import "./index.css";
 import "./overrides.css";
 import { supabase } from "./lib/supabase";
 import { requireEnv } from "./lib/env";
-import AuthPanel from "./components/AuthPanel";
+import AuthModal from "./components/AuthModal";
 
 const API_BASE_URL = requireEnv("VITE_API_BASE_URL");
 const DOLU_API_URL =
@@ -49,16 +49,30 @@ async function optionalAuthHeaders() {
   return session ? { Authorization: `Bearer ${session.access_token}` } : {};
 }
 
+// Real Supabase Auth error strings, confirmed live against this project -- never
+// surface these (or any other raw Supabase message) to a visitor directly.
+const MIN_SIGNUP_PASSWORD_LENGTH = 8;
+function mapAuthError(error) {
+  const message = (error?.message || "").toLowerCase();
+  if (message.includes("invalid login credentials")) return "That email or password is incorrect.";
+  if (error?.code === "weak_password" || message.includes("password should be at least"))
+    return `Choose a stronger password (at least ${MIN_SIGNUP_PASSWORD_LENGTH} characters).`;
+  if (message.includes("email not confirmed")) return "Confirm your email first -- check your inbox for the link we sent.";
+  if (message.includes("rate limit")) return "Too many attempts. Wait a moment and try again.";
+  return "Something went wrong. Please try again.";
+}
+function isNetworkError(error) {
+  return error instanceof TypeError || /failed to fetch|networkerror/i.test(error?.message || "");
+}
+const NETWORK_ERROR_MESSAGE = "Couldn't reach the server. Check your connection and try again.";
+const GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again.";
+
 function useSupabaseAuth() {
   const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [authMessage, setAuthMessage] = useState("");
-  const [authError, setAuthError] = useState("");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setUser(data.session?.user || null);
-      setAuthLoading(false);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
@@ -67,32 +81,38 @@ function useSupabaseAuth() {
   }, []);
 
   const onSignIn = async ({ email, password }) => {
-    setAuthLoading(true);
-    setAuthError("");
-    setAuthMessage("");
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setAuthError(error.message);
-    else setAuthMessage("Signed in.");
-    setAuthLoading(false);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return { error: mapAuthError(error) };
+      return {};
+    } catch (error) {
+      return { error: isNetworkError(error) ? NETWORK_ERROR_MESSAGE : GENERIC_ERROR_MESSAGE };
+    }
   };
 
   const onSignUp = async ({ email, password }) => {
-    setAuthLoading(true);
-    setAuthError("");
-    setAuthMessage("");
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) setAuthError(error.message);
-    else setAuthMessage("Check your email to confirm your account.");
-    setAuthLoading(false);
+    try {
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) return { error: mapAuthError(error) };
+      // Supabase deliberately does not return an error for an already-registered
+      // email (anti-enumeration): it returns 200 with a synthetic user whose
+      // `identities` array is empty -- confirmed live against this project, the
+      // only signal available that no new account was actually created.
+      if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        return { error: "An account with that email already exists -- try signing in instead." };
+      }
+      if (!data?.session) return { notice: "Check your email to confirm your account." };
+      return {};
+    } catch (error) {
+      return { error: isNetworkError(error) ? NETWORK_ERROR_MESSAGE : GENERIC_ERROR_MESSAGE };
+    }
   };
 
   const onSignOut = async () => {
-    setAuthLoading(true);
     await supabase.auth.signOut();
-    setAuthLoading(false);
   };
 
-  return { user, authLoading, authMessage, authError, onSignIn, onSignUp, onSignOut };
+  return { user, onSignIn, onSignUp, onSignOut };
 }
 
 const CATEGORY_TREE = [
@@ -193,18 +213,62 @@ const CATEGORY_IDS = {
   "Home Decor": "home-decor",
 };
 
+// Verified against the live catalog (not guessed) -- each returns a healthy
+// spread of real results, so they're safe to suggest from a zero-result state.
+const EXAMPLE_QUERIES = ["black oversized top", "floral midi dress", "denim jacket", "ethnic kurti"];
+
+// A discovery rail with only 1-2 items reads as broken, not curated -- hide it
+// entirely rather than show a near-empty row. Search results are exempt: a
+// direct match count of 1-2 is a legitimate answer, not a rail to pad out.
+const MIN_RAIL_ITEMS = 3;
+const MIN_BRAND_RAIL_ITEMS = 3;
+
+// Backend HTTPException details are already human-written ("Brands are
+// temporarily unavailable."). A raw fetch/network failure throws browser-generated
+// text instead ("Failed to fetch", "NetworkError when attempting to fetch
+// resource.") -- catch that shape specifically and swap in the same copy the
+// rest of the app already uses, rather than ever surfacing it verbatim.
+function humanizeFetchError(message) {
+  const text = String(message || "").trim();
+  if (!text || /failed to fetch|networkerror|load failed/i.test(text)) return NETWORK_ERROR_MESSAGE;
+  return text;
+}
 function formatNumber(value) {
   return Number(value || 0).toLocaleString("en-IN");
 }
+function hasPrice(value) {
+  return Boolean(value) && Number(value) > 0;
+}
 function formatPrice(value) {
-  return !value || Number(value) <= 0
-    ? "Price on request"
-    : `₹${Number(value).toLocaleString("en-IN")}`;
+  return `₹${Number(value).toLocaleString("en-IN")}`;
 }
 function percent(value) {
   return value === null || value === undefined
     ? "—"
     : `${Math.round(Number(value) * 100)}%`;
+}
+// Discovery-feed products (gem-score ranked, never run through any similarity
+// computation) carry similarity_score: 0.0 as a placeholder default, not a real
+// "0% match" -- never render that. Below ~5% a real similarity score is noise too.
+const MEANINGFUL_MATCH_THRESHOLD = 0.05;
+function hasMeaningfulMatchScore(value) {
+  return value !== null && value !== undefined && Number(value) > MEANINGFUL_MATCH_THRESHOLD;
+}
+// Search results carry a real similarity_score (0-1). Discovery-feed products instead
+// carry personalized_discovery_score (0-100, gem_score-based) -- but that number is
+// only genuinely "personalized" when personalization_matched is true; otherwise it's
+// plain gem_score with nothing user-specific behind it (true for every signed-out
+// visitor, and for signed-in users with no saved-preference overlap), and badging it
+// as "X% match" would just move the placeholder-precision problem to a different
+// field instead of fixing it. Returns null when there's nothing meaningful to show.
+function matchBadgeText(product) {
+  if (product.personalization_matched && product.personalized_discovery_score != null) {
+    return `${Math.round(product.personalized_discovery_score)}% match`;
+  }
+  if (hasMeaningfulMatchScore(product.similarity_score)) {
+    return `${percent(product.similarity_score)} match`;
+  }
+  return null;
 }
 function gemScore(item) {
   return item?.gem_score === null || item?.gem_score === undefined
@@ -400,7 +464,7 @@ function SafeImage({ src, alt, kind = "product", entityId = null, ...props }) {
   );
 }
 
-function Nav({ page, go, savedCount }) {
+function Nav({ page, go, savedCount, user, onSignInClick, onSignOut }) {
   const items = [
     ["discover", "Discover"],
     ["brands", "Brands"],
@@ -431,9 +495,16 @@ function Nav({ page, go, savedCount }) {
           <button onClick={() => go("saved")}>
             ♡ Saved <small>{savedCount}</small>
           </button>
-          <button className="profile-dot" onClick={() => go("profile")}>
-            U
-          </button>
+          {user ? (
+            <div className="nav-account">
+              <button className="profile-dot" onClick={() => go("profile")} title={user.email}>
+                {(user.email || "?")[0].toUpperCase()}
+              </button>
+              <button className="nav-signout" onClick={onSignOut}>Sign out</button>
+            </div>
+          ) : (
+            <button className="nav-signin" onClick={onSignInClick}>Sign in</button>
+          )}
         </div>
       </header>
       <nav className="mobile-nav">
@@ -479,9 +550,7 @@ function ProductCard({ product, saved, onSave, onOpen, onBoard }) {
       <button className="product-image" onClick={() => onOpen(product)}>
         <SafeImage src={product.image_url} alt={product.product_name} entityId={product.id} />
         <i>
-          {product.similarity_score !== null
-            ? `${percent(product.similarity_score)} match`
-            : "UNFOUND pick"}
+          {matchBadgeText(product) || "UNFOUND pick"}
         </i>
       </button>
       <div className="product-copy">
@@ -490,7 +559,7 @@ function ProductCard({ product, saved, onSave, onOpen, onBoard }) {
           {product.product_name}
         </button>
         <div className="product-line">
-          <strong>{formatPrice(product.price)}</strong>
+          {hasPrice(product.price) && <strong>{formatPrice(product.price)}</strong>}
           {gemScore(product) !== null && <span>💎 {gemScore(product)}{product.gem_label ? ` · ${product.gem_label}` : ""}</span>}
         </div>
         <div className="product-tags">
@@ -528,6 +597,67 @@ function ProductRail({ products, state, actions }) {
         />
       ))}
     </div>
+  );
+}
+
+// Shared visual language for every "nothing to show" and "something went wrong"
+// state in the app, built on the existing .accurate-empty card so new states
+// read as part of the same editorial system rather than a bootstrap alert.
+function EmptyState({ kicker, title, note, children, tone = "empty" }) {
+  return (
+    <div className={`accurate-empty${tone === "error" ? " is-error" : ""}`}>
+      {kicker && <p className="kicker">{kicker}</p>}
+      <h2>{title}</h2>
+      {note && <p>{note}</p>}
+      {children}
+    </div>
+  );
+}
+
+// .empty-board (dashed border) is the site's established "start something new"
+// pattern (first-run saves/boards) -- kept visually distinct from EmptyState's
+// solid-border .accurate-empty, which reads as "we looked and found nothing."
+function StartState({ glyph, title, note, children }) {
+  return (
+    <div className="empty-board">
+      {glyph && <span>{glyph}</span>}
+      <h2>{title}</h2>
+      {note && <p>{note}</p>}
+      {children}
+    </div>
+  );
+}
+
+function RetryButton({ onRetry, label = "Try again" }) {
+  return (
+    <button type="button" className="retry-button" onClick={onRetry}>
+      {label}
+    </button>
+  );
+}
+
+// A discovery/brand rail with fewer than `min` items vanishes entirely (heading
+// included) instead of rendering a near-empty row -- applied uniformly so every
+// rail behaves the same way rather than each call site guessing.
+function RailSection({ kicker, title, note, products, state, actions, min = MIN_RAIL_ITEMS, action }) {
+  if (products.length < min) return null;
+  return (
+    <Section kicker={kicker} title={title} note={note} action={action}>
+      <ProductRail products={products} state={state} actions={actions} />
+    </Section>
+  );
+}
+
+function BrandRailSection({ kicker, title, note, brands, min = MIN_BRAND_RAIL_ITEMS, openBrand }) {
+  if (brands.length < min) return null;
+  return (
+    <Section kicker={kicker} title={title} note={note}>
+      <div className="brand-row">
+        {brands.slice(0, 5).map((item) => (
+          <BrandCard key={item.id} brand={normalizeBrand(item)} count={item.eligible_product_count} onOpen={openBrand} />
+        ))}
+      </div>
+    </Section>
   );
 }
 
@@ -639,16 +769,26 @@ function DiscoverPage({
   brands,
   products,
   loading,
+  error,
+  onRetry,
   go,
   setSeedQuery,
   state,
   actions,
 }) {
   const [discoveryFeeds, setDiscoveryFeeds] = useState({ fresh_drops: [], hidden_gems: [], trending: [], missed: [], new_discoveries: [], stylish_tops: [], modern_ethnic: [], trending_brands: [], emerging_brands: [] });
+  const [feedsLoading, setFeedsLoading] = useState(true);
+  const [feedsError, setFeedsError] = useState("");
+  const [feedsRetryKey, setFeedsRetryKey] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
+    setFeedsLoading(true);
+    setFeedsError("");
     optionalAuthHeaders()
-      .then((headers) => fetchJson("/api/discovery/feeds", controller.signal, headers))
+      // session_seed: the same per-browser guest id already used for anonymous
+      // tracking, sent here purely as a determinism seed (never for a data lookup)
+      // so the discover feed is stable across reloads but varies between visitors.
+      .then((headers) => fetchJson(`/api/discovery/feeds?session_seed=${encodeURIComponent(PROFILE_ID)}`, controller.signal, headers))
       .then((data) => setDiscoveryFeeds({
         fresh_drops: (data.fresh_drops || []).map(normalizeProduct),
         hidden_gems: (data.hidden_gems || []).map(normalizeProduct),
@@ -660,125 +800,88 @@ function DiscoverPage({
         trending_brands: data.trending_brands || [],
         emerging_brands: data.emerging_brands || [],
       }))
-      .catch(() => {});
+      .catch((requestError) => {
+        if (requestError.name !== "AbortError") setFeedsError(requestError.message || NETWORK_ERROR_MESSAGE);
+      })
+      .finally(() => setFeedsLoading(false));
     return () => controller.abort();
-  }, []);
+  }, [feedsRetryKey]);
   const trending = discoveryFeeds.trending;
   const hidden = discoveryFeeds.hidden_gems;
   const preferred = state.interactions
     .map((i) => i.category)
     .filter(Boolean)
     .at(-1);
-  const forYou = preferred
-    ? products
-        .filter((p) => String(p.category).includes(preferred.split(" ").at(-1)))
-        .concat(products)
-        .slice(0, 8)
-    : hidden.slice(0, 8);
+  // Exact category match only -- a substring-of-last-word match (e.g. "Shirts") would
+  // cross genders ("Men Shirts" matching a "Women Shirts" product too), and padding
+  // with unfiltered products when the match set was small used to show completely
+  // unrelated items (a rail titled "Because you explored Men Shirts" showing a food
+  // photo). Never pad with anything that wouldn't itself belong under this label --
+  // fall back to the same curated hidden-gems set the no-history case already uses.
+  const preferredMatches = preferred
+    ? products.filter((p) => p.category === preferred)
+    : [];
+  const forYou = preferredMatches.length > 0 ? preferredMatches.slice(0, 8) : hidden.slice(0, 8);
+  const forYouLabel = preferredMatches.length > 0 ? preferred : null;
   return (
     <div className="page-shell">
       <HeroSearch go={go} setSeedQuery={setSeedQuery} />
-      {discoveryFeeds.fresh_drops.length > 0 && (
-        <Section kicker="FRESH DROPS" title="Just landed" note="Recent, quality-checked products with stable imagery and trusted metadata.">
-          <ProductRail products={discoveryFeeds.fresh_drops.slice(0, 8)} state={state} actions={actions} />
-        </Section>
+      {error && (
+        <EmptyState tone="error" title="Your picks couldn't load." note={humanizeFetchError(error)}>
+          <RetryButton onRetry={onRetry} />
+        </EmptyState>
       )}
-      <Section
-        kicker="CURATED BY UNFOUND"
-        title="UNFOUND PICKS"
-        note="A small edit of things we think are worth seeing."
-      >
-        {loading ? (
+      {loading ? (
+        <Section kicker="CURATED BY UNFOUND" title="UNFOUND PICKS" note="A small edit of things we think are worth seeing.">
           <div className="loading-block">Curating the edit…</div>
-        ) : (
-          <ProductRail
-            products={products.slice(0, 8)}
+        </Section>
+      ) : (
+        <RailSection kicker="CURATED BY UNFOUND" title="UNFOUND PICKS" note="A small edit of things we think are worth seeing." products={products.slice(0, 8)} state={state} actions={actions} />
+      )}
+      {feedsLoading ? (
+        <div className="loading-block">Curating your feed…</div>
+      ) : feedsError ? (
+        <EmptyState tone="error" title="This feed couldn't load." note={humanizeFetchError(feedsError)}>
+          <RetryButton onRetry={() => setFeedsRetryKey((key) => key + 1)} />
+        </EmptyState>
+      ) : (
+        <>
+          <RailSection kicker="FRESH DROPS" title="Just landed" note="Recent, quality-checked products with stable imagery and trusted metadata." products={discoveryFeeds.fresh_drops.slice(0, 8)} state={state} actions={actions} />
+          {hidden.length >= MIN_RAIL_ITEMS && (
+            <section className="discovery-split">
+              <div>
+                <p className="kicker">💎 GEM SPOTLIGHT · HIDDEN GEMS</p>
+                <h2>
+                  Small labels.
+                  <br />
+                  Big point of view.
+                </h2>
+                <p>Independent names making pieces that refuse to blend in.</p>
+                <button onClick={() => go("brands")}>Meet the brands →</button>
+              </div>
+              <ProductRail products={hidden.slice(0, 4)} state={state} actions={actions} />
+            </section>
+          )}
+          <RailSection kicker="🔥 TRENDING NOW" title="Currently in rotation" note="What the UNFOUND crowd keeps coming back to." products={trending.slice(0, 8)} state={state} actions={actions} />
+          <RailSection
+            kicker="✨ FOR YOU"
+            title={forYouLabel ? `Because you explored ${forYouLabel}` : "Start shaping your edit"}
+            note="Your feed quietly learns from every save, view and search."
+            products={forYou}
             state={state}
             actions={actions}
           />
-        )}
-      </Section>
-      <section className="discovery-split">
-        <div>
-          <p className="kicker">💎 GEM SPOTLIGHT · HIDDEN GEMS</p>
-          <h2>
-            Small labels.
-            <br />
-            Big point of view.
-          </h2>
-          <p>Independent names making pieces that refuse to blend in.</p>
-          <button onClick={() => go("brands")}>Meet the brands →</button>
-        </div>
-        <ProductRail
-          products={hidden.slice(0, 4)}
-          state={state}
-          actions={actions}
-        />
-      </section>
-      <Section
-        kicker="🔥 TRENDING NOW"
-        title="Currently in rotation"
-        note="What the UNFOUND crowd keeps coming back to."
-      >
-        <ProductRail
-          products={trending.slice(0, 8)}
-          state={state}
-          actions={actions}
-        />
-      </Section>
-      <Section
-        kicker="✨ FOR YOU"
-        title={
-          preferred
-            ? `Because you explored ${preferred}`
-            : "Start shaping your edit"
-        }
-        note="Your feed quietly learns from every save, view and search."
-      >
-        <ProductRail products={forYou} state={state} actions={actions} />
-      </Section>
-      {discoveryFeeds.stylish_tops.length > 0 && (
-        <Section kicker="THE TOPS EDIT" title="Stylish Tops" note="Going-out, cropped, fitted and less-obvious tops from independent labels.">
-          <ProductRail products={discoveryFeeds.stylish_tops.slice(0, 8)} state={state} actions={actions} />
-        </Section>
-      )}
-      {discoveryFeeds.modern_ethnic.length > 0 && (
-        <Section kicker="CONTEMPORARY CRAFT" title="Modern Ethnic" note="Kurtis, co-ords and contemporary ethnic pieces selected from the live catalog.">
-          <ProductRail products={discoveryFeeds.modern_ethnic.slice(0, 8)} state={state} actions={actions} />
-        </Section>
-      )}
-      {discoveryFeeds.missed.length > 0 && (
-        <Section kicker="👀 YOU MIGHT HAVE MISSED" title="Quietly worth your attention" note="Strong gems receiving less exposure across discovery.">
-          <ProductRail products={discoveryFeeds.missed.slice(0, 8)} state={state} actions={actions} />
-        </Section>
-      )}
-      {discoveryFeeds.emerging_brands.length > 0 && (
-        <Section kicker="✨ EMERGING BRANDS" title="Independent names to know" note="Promising labels ranked by catalog quality, distinctiveness and recent activity.">
-          <div className="brand-row">{discoveryFeeds.emerging_brands.slice(0, 5).map((item) => <BrandCard key={item.id} brand={normalizeBrand(item)} count={item.eligible_product_count} onOpen={actions.openBrand} />)}</div>
-        </Section>
-      )}
-      {discoveryFeeds.trending_brands.length > 0 && (
-        <Section kicker="TRENDING BRANDS" title="Names gaining attention" note="Ranked by freshness, engagement, catalog depth and niche relevance—not followers alone.">
-          <div className="brand-row">
-            {discoveryFeeds.trending_brands.slice(0, 5).map((item) => {
-              const brand = brands.find((row) => String(row.id) === String(item.brand_id)) || normalizeBrand(item);
-              return <BrandCard key={item.brand_id} brand={brand} count={item.product_count} onOpen={actions.openBrand} />;
-            })}
-          </div>
-        </Section>
+          <RailSection kicker="THE TOPS EDIT" title="Stylish Tops" note="Going-out, cropped, fitted and less-obvious tops from independent labels." products={discoveryFeeds.stylish_tops.slice(0, 8)} state={state} actions={actions} />
+          <RailSection kicker="CONTEMPORARY CRAFT" title="Modern Ethnic" note="Kurtis, co-ords and contemporary ethnic pieces selected from the live catalog." products={discoveryFeeds.modern_ethnic.slice(0, 8)} state={state} actions={actions} />
+          <RailSection kicker="👀 YOU MIGHT HAVE MISSED" title="Quietly worth your attention" note="Strong gems receiving less exposure across discovery." products={discoveryFeeds.missed.slice(0, 8)} state={state} actions={actions} />
+          <BrandRailSection kicker="✨ EMERGING BRANDS" title="Independent names to know" note="Promising labels ranked by catalog quality, distinctiveness and recent activity." brands={discoveryFeeds.emerging_brands} openBrand={actions.openBrand} />
+          <BrandRailSection kicker="TRENDING BRANDS" title="Names gaining attention" note="Ranked by freshness, engagement, catalog depth and niche relevance—not followers alone." brands={discoveryFeeds.trending_brands} openBrand={actions.openBrand} />
+        </>
       )}
       <CategoryStrip go={go} />
-      <Section
-        kicker="🆕 NEW DISCOVERIES"
-        title="Freshly found labels and pieces"
-        note="Recent, quality-checked additions from independent labels."
-      >
-        <ProductRail
-          products={discoveryFeeds.new_discoveries.slice(0, 8)}
-          state={state}
-          actions={actions}
-        />
-      </Section>
+      {!feedsLoading && !feedsError && (
+        <RailSection kicker="🆕 NEW DISCOVERIES" title="Freshly found labels and pieces" note="Recent, quality-checked additions from independent labels." products={discoveryFeeds.new_discoveries.slice(0, 8)} state={state} actions={actions} />
+      )}
     </div>
   );
 }
@@ -877,7 +980,8 @@ function CategoryPage({
     [categoryTypes, setCategoryTypes] = useState([]),
     [selectedType, setSelectedType] = useState(""),
     [loading, setLoading] = useState(true),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [retryKey, setRetryKey] = useState(0);
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -899,12 +1003,12 @@ function CategoryPage({
           setSelectedType("");
         }
       })
-      .catch((e) => active && setError(e.message))
+      .catch((e) => active && setError(e.message || NETWORK_ERROR_MESSAGE))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
     };
-  }, [selection.main, selection.sub]);
+  }, [selection.main, selection.sub, retryKey]);
   const selectedTypeData = categoryTypes.find((type) => type.slug === selectedType);
   const typeTerms = selectedTypeData?.terms || [selectedType.replaceAll("-", " ")];
   const filtered = categoryProducts.filter((product) => !selectedType ||
@@ -951,16 +1055,11 @@ function CategoryPage({
       {loading ? (
         <div className="loading-block">Checking the category archive…</div>
       ) : error ? (
-        <div className="accurate-empty">
-          <h2>Category unavailable</h2>
-          <p>{error}</p>
-        </div>
+        <EmptyState tone="error" title="Category unavailable" note={humanizeFetchError(error)}>
+          <RetryButton onRetry={() => setRetryKey((key) => key + 1)} />
+        </EmptyState>
       ) : !filtered.length ? (
-        <div className="accurate-empty">
-          <p className="kicker">STILL DISCOVERING</p>
-          <h2>No products discovered here yet.</h2>
-          <p>More gems are being discovered for this category.</p>
-        </div>
+        <EmptyState kicker="STILL DISCOVERING" title="No products discovered here yet." note="More gems are being discovered for this category." />
       ) : (
         <>
           <Section
@@ -1006,7 +1105,7 @@ function CategoryPage({
   );
 }
 
-function BrandsPage({ brands, products, loading, error, openBrand }) {
+function BrandsPage({ brands, products, loading, error, onRetry, openBrand }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
   const [visible, setVisible] = useState(48);
@@ -1050,15 +1149,11 @@ function BrandsPage({ brands, products, loading, error, openBrand }) {
       {loading ? (
         <div className="loading-block">Loading the brand directory…</div>
       ) : error ? (
-        <div className="accurate-empty">
-          <h2>Brands unavailable</h2>
-          <p>{error}</p>
-        </div>
+        <EmptyState tone="error" title="Brands unavailable" note={humanizeFetchError(error)}>
+          <RetryButton onRetry={onRetry} />
+        </EmptyState>
       ) : !shown.length ? (
-        <div className="accurate-empty">
-          <h2>No brands found.</h2>
-          <p>Try another name or category.</p>
-        </div>
+        <EmptyState title="No brands found." note="Try another name or category." />
       ) : (
         <>
           <div className="brand-directory">
@@ -1090,6 +1185,7 @@ function BrandProfile({ brand, products, brands, actions, state, back }) {
   const [similar, setSimilar] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
   useEffect(() => {
     if (!brand?.id) return;
     const controller = new AbortController();
@@ -1104,11 +1200,11 @@ function BrandProfile({ brand, products, brands, actions, state, back }) {
         setSimilar((similarData.brands || []).map(normalizeBrand));
       })
       .catch((requestError) => {
-        if (requestError.name !== "AbortError") setError(requestError.message);
+        if (requestError.name !== "AbortError") setError(requestError.message || NETWORK_ERROR_MESSAGE);
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [brand?.id]);
+  }, [brand?.id, retryKey]);
   const pieces = remote;
   const cats = [...new Set(pieces.map((p) => p.category).filter(Boolean))];
   return (
@@ -1154,10 +1250,9 @@ function BrandProfile({ brand, products, brands, actions, state, back }) {
         {loading ? (
           <div className="loading-block">Loading this brand’s products…</div>
         ) : error ? (
-          <div className="accurate-empty">
-            <h2>Products unavailable</h2>
-            <p>{error}</p>
-          </div>
+          <EmptyState tone="error" title="Products unavailable" note={humanizeFetchError(error)}>
+            <RetryButton onRetry={() => setRetryKey((key) => key + 1)} />
+          </EmptyState>
         ) : pieces.length ? (
           <ProductRail
             products={pieces.slice(0, 12)}
@@ -1165,10 +1260,7 @@ function BrandProfile({ brand, products, brands, actions, state, back }) {
             actions={actions}
           />
         ) : (
-          <div className="accurate-empty">
-            <h2>No products stored for this brand yet.</h2>
-            <p>The catalog returned no products linked to this brand ID.</p>
-          </div>
+          <EmptyState title="No products stored for this brand yet." note="The catalog returned no products linked to this brand ID." />
         )}
       </Section>
       <Section kicker="SHOP BY CATEGORY" title="Their world">
@@ -1198,6 +1290,17 @@ function BrandProfile({ brand, products, brands, actions, state, back }) {
   );
 }
 
+// Used to work out which single filter is responsible for a zero-result search
+// (probed by re-running the query with just that one filter removed) and to
+// power the "clear filters" action -- key must match the matching useState name.
+const SEARCH_FILTER_FIELDS = [
+  { key: "category", formKey: "category_slug", label: "The category filter" },
+  { key: "gender", formKey: "gender", label: "The gender filter" },
+  { key: "minPrice", formKey: "min_price", label: "The minimum price filter" },
+  { key: "maxPrice", formKey: "max_price", label: "The maximum price filter" },
+  { key: "minNiche", formKey: "min_niche_score", label: "The minimum niche-score filter" },
+];
+
 function SearchPage({ seedQuery, state, actions, track }) {
   const [query, setQuery] = useState(seedQuery || "");
   const [image, setImage] = useState(() => window.__unfoundImage || null);
@@ -1208,6 +1311,8 @@ function SearchPage({ seedQuery, state, actions, track }) {
   const [moreLikeLabel, setMoreLikeLabel] = useState("More Like This");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [blockingFilter, setBlockingFilter] = useState(null);
+  const [searchedWithImage, setSearchedWithImage] = useState(false);
   const [category, setCategory] = useState("");
   const [gender, setGender] = useState("");
   const [minPrice, setMinPrice] = useState("");
@@ -1216,51 +1321,95 @@ function SearchPage({ seedQuery, state, actions, track }) {
   const [sort, setSort] = useState("");
   const file = useRef(null);
   const request = useRef(null);
-  async function search(event) {
-    event?.preventDefault();
-    if (!query.trim() && !image) return;
+  const filterValues = { category, gender, minPrice, maxPrice, minNiche };
+  const activeFilters = SEARCH_FILTER_FIELDS.filter((f) => filterValues[f.key]);
+  function buildSearchForm(queryText, imageFile, values, overrideKey) {
+    const body = new FormData();
+    if (imageFile) body.append("image_file", imageFile);
+    else body.append("text_query", (queryText || "").trim());
+    for (const f of SEARCH_FILTER_FIELDS) {
+      if (f.key !== overrideKey && values[f.key]) body.append(f.formKey, values[f.key]);
+    }
+    if (sort) body.append("sort_by", sort);
+    return body;
+  }
+  async function runDiscover(body, signal) {
+    const response = await fetch(`${API_BASE_URL}/api/discover`, {
+      method: "POST",
+      headers: await optionalAuthHeaders(),
+      body,
+      signal,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail || "Search failed");
+    return data;
+  }
+  // Runs a search using explicit values rather than reading component state,
+  // so a caller that just called setState (clearFilters, an example-query chip)
+  // doesn't race React's async state update and search on stale filters/query.
+  async function runSearch(queryText, imageFile, values) {
+    if (!String(queryText || "").trim() && !imageFile) return;
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
     setLoading(true);
     setError("");
-    const body = new FormData();
-    if (image) body.append("image_file", image);
-    else body.append("text_query", query.trim());
-    if (category) body.append("category_slug", category);
-    if (gender) body.append("gender", gender);
-    if (minPrice) body.append("min_price", minPrice);
-    if (maxPrice) body.append("max_price", maxPrice);
-    if (minNiche) body.append("min_niche_score", minNiche);
-    if (sort) body.append("sort_by", sort);
+    setBlockingFilter(null);
+    setSearchedWithImage(Boolean(imageFile));
+    const activeNow = SEARCH_FILTER_FIELDS.filter((f) => values[f.key]);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/discover`, {
-        method: "POST",
-        headers: await optionalAuthHeaders(),
-        body,
-        signal: controller.signal,
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.detail || "Search failed");
-      setResults((data.results || []).map(normalizeProduct));
+      const data = await runDiscover(buildSearchForm(queryText, imageFile, values), controller.signal);
+      const resultRows = data.results || [];
+      setResults(resultRows.map(normalizeProduct));
       setBestMatches(
-        (data.best_matches || data.results?.slice(0, 8) || []).map(
-          normalizeProduct,
-        ),
+        (data.best_matches || resultRows.slice(0, 8)).map(normalizeProduct),
       );
       setMoreLikeThis(
-        (data.more_like_this || data.results?.slice(8) || []).map(
-          normalizeProduct,
-        ),
+        (data.more_like_this || resultRows.slice(8)).map(normalizeProduct),
       );
       setMoreLikeLabel(data.more_like_this_label || "More Like This");
       setBrandResults((data.similar_brands || []).map(normalizeBrand));
-      track("search", { id: query || "image", category });
+      track("search", { id: queryText || "image", category: values.category });
+      // Zero results with active filters: find which single filter, if removed,
+      // would unblock matches -- so the empty state can name it instead of
+      // just suggesting "remove a filter" and leaving the guessing to the user.
+      if (!resultRows.length && activeNow.length) {
+        for (const f of activeNow) {
+          try {
+            const probe = await runDiscover(buildSearchForm(queryText, imageFile, values, f.key), controller.signal);
+            if ((probe.results || []).length > 0) {
+              setBlockingFilter(f.label);
+              break;
+            }
+          } catch {
+            // A probe failure just means we can't name the filter -- not worth
+            // surfacing as a second error on top of a successful main search.
+          }
+        }
+      }
     } catch (searchError) {
-      if (searchError.name !== "AbortError") setError(searchError.message);
+      if (searchError.name !== "AbortError") setError(searchError.message || NETWORK_ERROR_MESSAGE);
     } finally {
       if (request.current === controller) setLoading(false);
     }
+  }
+  function search(event) {
+    event?.preventDefault();
+    runSearch(query, image, filterValues);
+  }
+  function clearFilters() {
+    const cleared = { category: "", gender: "", minPrice: "", maxPrice: "", minNiche: "" };
+    setCategory("");
+    setGender("");
+    setMinPrice("");
+    setMaxPrice("");
+    setMinNiche("");
+    runSearch(query, image, cleared);
+  }
+  function runExampleQuery(example) {
+    setQuery(example);
+    setImage(null);
+    runSearch(example, null, filterValues);
   }
   useEffect(() => {
     if (seedQuery || image) search();
@@ -1348,7 +1497,6 @@ function SearchPage({ seedQuery, state, actions, track }) {
           Apply filters
         </button>
       </div>
-      {error && <p className="error-line">{error}</p>}
       <Section
         kicker="PRODUCTS"
         title={
@@ -1358,14 +1506,40 @@ function SearchPage({ seedQuery, state, actions, track }) {
               ? `${results.length} things found`
               : error
                 ? "Search unavailable"
-                : "Your results will live here"
+                : (query || image)
+                  ? "No matches found"
+                  : "Your results will live here"
         }
       >
+        {!loading && error && (
+          <EmptyState tone="error" title="Search unavailable" note={humanizeFetchError(error)}>
+            <RetryButton onRetry={() => search()} />
+          </EmptyState>
+        )}
         {!loading && !error && !results.length && (query || image) && (
-          <div className="accurate-empty">
-            <h2>No matching products found.</h2>
-            <p>Try a broader description or remove a filter.</p>
-          </div>
+          <EmptyState
+            title={searchedWithImage ? "Nothing looked similar enough to that image." : "No matching products found."}
+            note={
+              blockingFilter
+                ? `${blockingFilter} is narrowing this down to zero — clear it to see matches.`
+                : searchedWithImage
+                  ? "Try a clearer or more zoomed-in photo, or describe the piece in words instead."
+                  : activeFilters.length
+                    ? "Try a broader description, or clear your filters."
+                    : "Try a broader description, or one of these:"
+            }
+          >
+            {activeFilters.length > 0 && <RetryButton onRetry={clearFilters} label="Clear filters" />}
+            {!searchedWithImage && !blockingFilter && !activeFilters.length && (
+              <div className="example-query-chips">
+                {EXAMPLE_QUERIES.map((example) => (
+                  <button key={example} type="button" onClick={() => runExampleQuery(example)}>
+                    {example}
+                  </button>
+                ))}
+              </div>
+            )}
+          </EmptyState>
         )}
       </Section>
       {bestMatches.length > 0 && (
@@ -1574,13 +1748,11 @@ function MoodboardsPage({ state, setState, products, actions }) {
         </div>
       </header>
       {!state.boards.length ? (
-        <div className="empty-board">
-          <span>✦</span>
-          <h2>Your first mood starts here.</h2>
-          <p>
-            Save products from anywhere in UNFOUND, then arrange the feeling.
-          </p>
-        </div>
+        <StartState
+          glyph="✦"
+          title="Your first mood starts here."
+          note="Moodboards collect pieces you're drawn to into one visual collection. Save products from anywhere in UNFOUND, or create a board above, then arrange the feeling."
+        />
       ) : (
         <div className="mood-layout">
           <aside>
@@ -1649,31 +1821,41 @@ function MoodboardsPage({ state, setState, products, actions }) {
                   <button onClick={() => removeBoard(board.id)}>Delete</button>
                 </div>
               </header>
-              <div className="board-collage">
-                {board.items.map((p) => (
-                  <article
-                    className={p.id === board.cover_id ? "cover-item" : ""}
-                    key={p.id}
-                  >
-                    <img src={p.image_url} alt={p.product_name} />
-                    <button onClick={() => removeItem(p.id)}>×</button>
-                    <button
-                      className="cover-button"
-                      onClick={() => setCover(p.id)}
-                    >
-                      {p.id === board.cover_id ? "Cover" : "Set cover"}
-                    </button>
-                  </article>
-                ))}
-              </div>
-              <div className="mood-detected">
-                <small>MOOD DETECTED</small>
-                <h3>{mood}</h3>
-                <p>
-                  UNFOUND reads the common visual language across your saved
-                  pieces.
-                </p>
-              </div>
+              {board.items.length === 0 ? (
+                <StartState
+                  glyph="✦"
+                  title="This board is empty."
+                  note="Add the heart on any product, or use “+” from a product card, to start collecting the feeling here."
+                />
+              ) : (
+                <>
+                  <div className="board-collage">
+                    {board.items.map((p) => (
+                      <article
+                        className={p.id === board.cover_id ? "cover-item" : ""}
+                        key={p.id}
+                      >
+                        <img src={p.image_url} alt={p.product_name} />
+                        <button onClick={() => removeItem(p.id)}>×</button>
+                        <button
+                          className="cover-button"
+                          onClick={() => setCover(p.id)}
+                        >
+                          {p.id === board.cover_id ? "Cover" : "Set cover"}
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                  <div className="mood-detected">
+                    <small>MOOD DETECTED</small>
+                    <h3>{mood}</h3>
+                    <p>
+                      UNFOUND reads the common visual language across your saved
+                      pieces.
+                    </p>
+                  </div>
+                </>
+              )}
               <Section kicker="COMPLETE THE MOOD" title="A few things to add">
                 <ProductRail
                   products={products
@@ -1721,17 +1903,19 @@ function ProductDetail({ product, products, state, actions, close }) {
           <h3>{product.brand_name}</h3>
           <div className="score-row">
             {gemScore(product) !== null && <b>💎 {gemScore(product)} {product.gem_label || ""}</b>}
-            <span>{percent(product.similarity_score)} match</span>
+            {matchBadgeText(product) && <span>{matchBadgeText(product)}</span>}
           </div>
           <p>
             {product.description ||
               "A distinct find from an independent label in the UNFOUND archive."}
           </p>
           <dl>
-            <div>
-              <dt>Price</dt>
-              <dd>{formatPrice(product.price)}</dd>
-            </div>
+            {hasPrice(product.price) && (
+              <div>
+                <dt>Price</dt>
+                <dd>{formatPrice(product.price)}</dd>
+              </div>
+            )}
             <div>
               <dt>Category</dt>
               <dd>{product.category}</dd>
@@ -1782,16 +1966,17 @@ function SavedPage({ state, actions }) {
         ))}
       </div>
       {!state.saved.length && (
-        <div className="empty-board">
-          <h2>Nothing saved yet.</h2>
-          <p>Tap the heart on any find to keep it here.</p>
-        </div>
+        <StartState
+          glyph="♡"
+          title="Nothing saved yet."
+          note="Tap the ♡ on any product across search, discover or a brand page, and it collects here so you can find it again."
+        />
       )}
     </div>
   );
 }
 
-function ProfilePage({ state, auth }) {
+function ProfilePage({ state, auth, openAuthModal }) {
   const counts = state.interactions.reduce((a, i) => {
     if (i.category) a[i.category] = (a[i.category] || 0) + 1;
     return a;
@@ -1805,15 +1990,25 @@ function ProfilePage({ state, auth }) {
   ];
   return (
     <div className="page-shell">
-      <AuthPanel
-        user={auth.user}
-        authLoading={auth.authLoading}
-        authMessage={auth.authMessage}
-        authError={auth.authError}
-        onSignIn={auth.onSignIn}
-        onSignUp={auth.onSignUp}
-        onSignOut={auth.onSignOut}
-      />
+      <div className="account-strip">
+        {auth.user ? (
+          <>
+            <div>
+              <p className="kicker">SIGNED IN</p>
+              <h2>{auth.user.email}</h2>
+            </div>
+            <button type="button" onClick={auth.onSignOut}>Sign out</button>
+          </>
+        ) : (
+          <>
+            <div>
+              <p className="kicker">GUEST BROWSING</p>
+              <h2>Sign in to see your saved edit.</h2>
+            </div>
+            <button type="button" onClick={() => openAuthModal()}>Sign in</button>
+          </>
+        )}
+      </div>
       <header className="page-intro">
         <p className="kicker">YOUR UNFOUND STYLE</p>
         <h1>A profile built quietly.</h1>
@@ -1834,15 +2029,23 @@ function ProfilePage({ state, auth }) {
         title="Your signals"
         note={`${state.interactions.length} interactions shaping your edit`}
       >
-        <div className="text-chips">
-          {Object.entries(counts)
-            .slice(0, 8)
-            .map(([name, count]) => (
-              <span key={name}>
-                {name} · {count}
-              </span>
-            ))}
-        </div>
+        {state.interactions.length ? (
+          <div className="text-chips">
+            {Object.entries(counts)
+              .slice(0, 8)
+              .map(([name, count]) => (
+                <span key={name}>
+                  {name} · {count}
+                </span>
+              ))}
+          </div>
+        ) : (
+          <StartState
+            glyph="✦"
+            title="No signals yet."
+            note="Browse, search and save pieces you like -- this quietly fills in from there."
+          />
+        )}
       </Section>
     </div>
   );
@@ -1873,10 +2076,39 @@ export default function App() {
     [products, setProducts] = useState([]),
     [loading, setLoading] = useState(true),
     [catalogError, setCatalogError] = useState(""),
+    [catalogRetryKey, setCatalogRetryKey] = useState(0),
     [selectedProduct, setSelectedProduct] = useState(null),
-    [seedQuery, setSeedQuery] = useState("");
+    [seedQuery, setSeedQuery] = useState(""),
+    [authModalOpen, setAuthModalOpen] = useState(false),
+    [pendingAuthAction, setPendingAuthAction] = useState(null);
   const auth = useSupabaseAuth();
   const [state, setState, track, toggleSave] = useGuestState(auth.user?.id);
+  const wasSignedIn = useRef(Boolean(auth.user));
+  // Runs whichever action (e.g. a save) triggered the sign-in prompt, once the user
+  // actually becomes signed in -- and only then, never on the initial session check.
+  useEffect(() => {
+    if (auth.user && !wasSignedIn.current) {
+      setAuthModalOpen(false);
+      pendingAuthAction?.();
+      setPendingAuthAction(null);
+    }
+    wasSignedIn.current = Boolean(auth.user);
+  }, [auth.user, pendingAuthAction]);
+  const openAuthModal = (action = null) => {
+    setPendingAuthAction(() => action);
+    setAuthModalOpen(true);
+  };
+  const closeAuthModal = () => {
+    setAuthModalOpen(false);
+    setPendingAuthAction(null);
+  };
+  const requireAuth = (fn) => (...args) => {
+    if (!auth.user) {
+      openAuthModal(() => fn(...args));
+      return;
+    }
+    return fn(...args);
+  };
   useEffect(() => {
     if (!products.length) return;
     setState((current) => {
@@ -1929,11 +2161,12 @@ export default function App() {
       })
       .catch((requestError) => {
         if (requestError.name !== "AbortError")
-          setCatalogError(requestError.message);
+          setCatalogError(requestError.message || NETWORK_ERROR_MESSAGE);
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, []);
+  }, [catalogRetryKey]);
+  const retryCatalog = () => setCatalogRetryKey((key) => key + 1);
   const go = (next, data = null) => {
     setPage(next);
     setPayload(data);
@@ -1996,9 +2229,12 @@ export default function App() {
     }).catch(() => {});
   };
   const actions = {
-    toggleSave,
-    toggleBrandSave,
-    addToBoard,
+    // Saving is a signed-in feature (it has to persist server-side to mean
+    // anything) -- clicking save while signed out opens the sign-in modal instead
+    // of silently no-op'ing, then replays the same action once sign-in succeeds.
+    toggleSave: requireAuth(toggleSave),
+    toggleBrandSave: requireAuth(toggleBrandSave),
+    addToBoard: requireAuth(addToBoard),
     openBrand,
     openProduct: (p) => {
       track("product_view", p);
@@ -2013,6 +2249,7 @@ export default function App() {
           products={products}
           loading={loading}
           error={catalogError}
+          onRetry={retryCatalog}
           openBrand={openBrand}
         />
       );
@@ -2059,13 +2296,15 @@ export default function App() {
         />
       );
     if (page === "saved") return <SavedPage state={state} actions={actions} />;
-    if (page === "profile") return <ProfilePage state={state} auth={auth} />;
+    if (page === "profile") return <ProfilePage state={state} auth={auth} openAuthModal={openAuthModal} />;
     if (page === "about") return <AboutPage />;
     return (
       <DiscoverPage
         brands={brands}
         products={products}
         loading={loading}
+        error={catalogError}
+        onRetry={retryCatalog}
         go={go}
         setSeedQuery={setSeedQuery}
         state={state}
@@ -2079,12 +2318,20 @@ export default function App() {
     products,
     loading,
     catalogError,
+    catalogRetryKey,
     state,
     seedQuery,
   ]);
   return (
     <main>
-      <Nav page={page} go={go} savedCount={state.saved.length} />
+      <Nav
+        page={page}
+        go={go}
+        savedCount={state.saved.length}
+        user={auth.user}
+        onSignInClick={() => openAuthModal()}
+        onSignOut={auth.onSignOut}
+      />
       <div className="page-transition" key={page}>
         {content}
       </div>
@@ -2102,6 +2349,12 @@ export default function App() {
         <p>Find what you weren’t looking for.</p>
         <span>Independent by design · AI-powered discovery</span>
       </footer>
+      <AuthModal
+        open={authModalOpen}
+        onClose={closeAuthModal}
+        onSignIn={auth.onSignIn}
+        onSignUp={auth.onSignUp}
+      />
     </main>
   );
 }

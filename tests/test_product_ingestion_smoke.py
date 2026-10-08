@@ -6,7 +6,7 @@ from typing import Any
 
 from starlette.requests import Request
 
-from backend.app import app, brands_health, catalog_health, catalog_issues, discover, list_brand_products, list_brands, list_products, recommend
+from backend.app import admin_dashboard, app, brands_health, catalog_health, catalog_issues, discover, list_brand_products, list_brands, list_products, recommend
 from training.scraper_pipeline import ScrapedInstagramPost, dedupe_posts, parse_follower_count, run_pipeline, validate_category
 
 
@@ -313,6 +313,17 @@ def test_instagram_product_ingestion_is_searchable(monkeypatch, tmp_path) -> Non
     assert issues["total"] == 0
     brand_health = __import__("asyncio").run(brands_health("test-admin-key"))
     assert brand_health["brands"][0]["product_count"] == 2
+
+    dashboard = __import__("asyncio").run(admin_dashboard("test-admin-key"))
+    assert dashboard["catalog_health"]["total_products"] == 2
+    assert dashboard["catalog_health"]["total_brands"] == 1
+    assert dashboard["confidence_distribution"]["total"] == 2
+    assert dashboard["caption_like_names"]["count"] == 0
+    assert sum(row["count"] for row in dashboard["category_audience_breakdown"]) == 2
+    assert sum(row["count"] for row in dashboard["brand_category_breakdown"]) == 1
+    assert dashboard["search_analytics"]["total_queries"] >= 0
+    assert isinstance(dashboard["relevance_runs"], list)
+    assert isinstance(dashboard["ingestion_runs"], list)
 
 
 def test_scraper_validation_helpers_are_defensive() -> None:

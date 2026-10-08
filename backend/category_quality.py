@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
-from backend.product_taxonomy import identify_product
+from backend.product_taxonomy import gender_match_score, identify_product
 from backend.supabase_compat import create_supabase_client
 
 AUTO_CATEGORY_THRESHOLD = float(os.getenv("CATEGORY_AUTO_THRESHOLD", "0.80"))
@@ -469,9 +469,11 @@ def product_supports_category(product: dict[str, Any], category_slug: str, categ
     requested = category_slug.lower()
     aliases = {"accessories-jewellery":{"accessories-jewellery","women-jewelry"}, "accessories-bags":{"accessories-bags","women-bags"}}
     accepted = aliases.get(requested, {requested})
-    audience = str(product.get("audience") or product.get("normalized_main_category") or "").lower()
     required_audience = requested.split("-", 1)[0] if requested.startswith(("women-","men-","unisex-")) else None
-    if required_audience and audience and required_audience not in audience:
+    # gender_match_score (not a hand-rolled audience check): a blank audience field
+    # must NOT silently skip this gate -- 0.0 ("no evidence") is a real rejection here,
+    # same as the search path's own gender gate.
+    if required_audience and gender_match_score(product, required_audience) <= 0.0:
         return False
     family, product_type = identify_product(compact_text(product))
     family_rules = {

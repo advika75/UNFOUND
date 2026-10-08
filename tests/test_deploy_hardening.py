@@ -110,7 +110,7 @@ def _patch_discovery(monkeypatch):
 
     def fake_sections(products, brands, **kwargs):
         captured.append(kwargs["preferences"])
-        keys = ("hidden_gems", "trending", "fresh_drops", "new_discoveries", "missed", "emerging_brands", "scored_products")
+        keys = ("hidden_gems", "trending", "fresh_drops", "new_discoveries", "missed", "emerging_brands", "trending_brands", "scored_products")
         return {**{k: [] for k in keys}, "trending_signal": {}, "eligible_candidates": 0}
 
     monkeypatch.setattr(app_module, "discovery_sections", fake_sections)

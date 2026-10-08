@@ -35,6 +35,16 @@ from backend.personalization import (
     router as personalization_router,
 )
 from backend.category_quality import AUTO_CATEGORY_THRESHOLD, category_map, fetch_all, product_supports_category
+from backend.admin_dashboard import (
+    brand_category_breakdown,
+    caption_like_names,
+    category_audience_breakdown,
+    confidence_distribution,
+    read_eval_run_history,
+    read_ingestion_runs,
+    search_analytics,
+)
+from backend.search_query_log import log_search_query, read_search_query_log
 from backend.utils import (
     UploadValidationError,
     read_validated_image_upload,
@@ -43,8 +53,10 @@ from backend.utils import (
 from backend.product_taxonomy import (
     FAMILY_LABELS,
     TYPE_LABELS,
+    attach_category_audience,
     family_match,
     family_terms,
+    gender_match_score,
     identify_product,
     type_match,
     type_regex,
@@ -675,24 +687,6 @@ def category_match_score(product: dict[str, Any], attributes: dict[str, Any], ca
     return 1.0 if any(term in haystack for term in category_terms) else 0.0
 
 
-def gender_match_score(product: dict[str, Any], requested_gender: str | None) -> float:
-    if not requested_gender:
-        return 0.5
-    # category_audience comes from categories.audience (e.g. "WOMEN" for the
-    # "Kurtis" category) -- a reliable signal even when the category's own
-    # display name has no literal gender word in it, and far more complete
-    # than the product's own audience column (populated on well under 4% of
-    # rows). Checked first since it's the most trustworthy source.
-    audience = " ".join(str(product.get(field) or "") for field in (
-        "category_audience", "audience", "category", "normalized_main_category", "normalized_subcategory"
-    )).lower()
-    if requested_gender in audience:
-        return 1.0
-    if "unisex" in audience:
-        return 0.75
-    return 0.0
-
-
 def apply_final_ranking(
     products: list[dict[str, Any]],
     *,
@@ -914,6 +908,7 @@ def run_match_products_rpc(
     query_text: str | None = None,
     rrf_weights: list[float] | None = None,
     rerank_mode: str = "off",
+    cache_stats: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     cache_key = (
         tuple(round(value, 6) for value in query_embedding[:16]),
@@ -938,7 +933,11 @@ def run_match_products_rpc(
     )
     cached = _cache_get(SEARCH_CACHE, cache_key, SEARCH_CACHE_TTL_SECONDS)
     if cached is not None:
+        if cache_stats is not None:
+            cache_stats["hit"] = True
         return cached
+    if cache_stats is not None:
+        cache_stats["hit"] = False
 
     use_hybrid = retrieval_mode == "hybrid" and search_mode == "text" and query_text
 
@@ -1321,7 +1320,7 @@ async def category_catalog(category_slug: str, limit: int = 48, offset: int = 0)
         target = categories.get(category_slug)
         if not target:
             raise HTTPException(status_code=404, detail="Category not found.")
-        all_products = fetch_all(supabase, "products")
+        all_products = attach_category_audience(fetch_all(supabase, "products"), categories.values())
         all_brands = fetch_all(supabase, "brands")
     except HTTPException:
         raise
@@ -1379,7 +1378,8 @@ async def category_types(category_slug: str):
         categories = category_map(supabase)
         if category_slug not in categories and category_slug not in family_by_category:
             raise HTTPException(status_code=404, detail="Category not found.")
-        products = [format_product(row) for row in fetch_all(supabase, "products") if product_supports_category(row, category_slug, categories)]
+        enriched_products = attach_category_audience(fetch_all(supabase, "products"), categories.values())
+        products = [format_product(row) for row in enriched_products if product_supports_category(row, category_slug, categories)]
     except HTTPException:
         raise
     except Exception as error:
@@ -1390,7 +1390,7 @@ async def category_types(category_slug: str):
 
 def _discovery_product(row: dict[str, Any]) -> dict[str, Any]:
     public = format_product(row)
-    for key in ("gem_score", "gem_label", "personalized_discovery_score", "recommendation_reason", "product_family", "product_type"):
+    for key in ("gem_score", "gem_label", "personalized_discovery_score", "personalization_matched", "recommendation_reason", "product_family", "product_type"):
         public[key] = row.get(key)
     if os.getenv("ENVIRONMENT", "development").lower() != "production":
         public["discovery_debug"] = {"components": row.get("components"), "exposure_boost": row.get("exposure_boost"), "eligible": row.get("discovery_eligible")}
@@ -1405,13 +1405,25 @@ def _discovery_brand(row: dict[str, Any]) -> dict[str, Any]:
     return public
 
 
-def _load_discovery(category: str | None = None, product_type: str | None = None, limit: int = 16, user_id: UUID | None = None) -> dict[str, Any]:
-    cache_key = (category, product_type, limit, str(user_id) if user_id else None)
+def _load_discovery(category: str | None = None, product_type: str | None = None, limit: int = 16, user_id: UUID | None = None, session_seed: str | None = None) -> dict[str, Any]:
+    # A verified signed-in user id is preferred when available (stable across devices);
+    # otherwise the client's own session seed (e.g. its localStorage guest id) is used
+    # purely as a determinism seed here -- never for any data lookup, so it carries
+    # none of the IDOR risk a client-supplied *identity* would.
+    effective_seed = str(user_id) if user_id else (session_seed or "")
+    cache_key = (category, product_type, limit, str(user_id) if user_id else None, session_seed)
     cached = _cache_get(DISCOVERY_FEED_CACHE, cache_key, DISCOVERY_FEED_CACHE_TTL)
     if cached is not None: return cached
     supabase: Client | SupabaseRestClient = app.state.supabase
     try:
-        products = [row for row in fetch_all(supabase, "products") if row.get("catalog_status") != "NON_PRODUCT"]
+        try:
+            categories = category_map(supabase)
+        except Exception:
+            categories = {}
+        products = attach_category_audience(
+            [row for row in fetch_all(supabase, "products") if row.get("catalog_status") != "NON_PRODUCT"],
+            categories.values(),
+        )
         brands = fetch_all(supabase, "brands")
         try: interactions = fetch_all(supabase, "interactions")
         except Exception: interactions = []
@@ -1422,13 +1434,13 @@ def _load_discovery(category: str | None = None, product_type: str | None = None
     if user_id is not None and personalization_client is not None:
         try: preferences = load_personalization_context(personalization_client, user_id)
         except Exception: preferences = None
-    sections = discovery_sections(products, brands, supabase_url=os.getenv("SUPABASE_URL", ""), interactions=interactions, preferences=preferences, category=category, product_type=product_type, limit=max(1,min(limit,50)))
+    sections = discovery_sections(products, brands, supabase_url=os.getenv("SUPABASE_URL", ""), interactions=interactions, preferences=preferences, category=category, product_type=product_type, limit=max(1,min(limit,50)), seed=effective_seed)
     payload = {key:[_discovery_product(row) for row in sections[key]] for key in ("hidden_gems","trending","fresh_drops","new_discoveries","missed")}
     payload["emerging_brands"] = [_discovery_brand(row) for row in sections["emerging_brands"]]
+    payload["trending_brands"] = [_discovery_brand(row) for row in sections["trending_brands"]]
     payload["trending_signal"] = sections["trending_signal"]
     payload["stylish_tops"] = [_discovery_product(row) for row in sections["scored_products"] if row.get("discovery_eligible") and row.get("product_family") == "tops"][:16]
     payload["modern_ethnic"] = [_discovery_product(row) for row in sections["scored_products"] if row.get("discovery_eligible") and row.get("product_family") in {"ethnic-upperwear","sets"}][:16]
-    payload["trending_brands"] = payload["emerging_brands"]
     if os.getenv("ENVIRONMENT", "development").lower() != "production":
         payload["discovery_diagnostics"] = {"candidates": len(products), "eligible": sections["eligible_candidates"]}
     _cache_put(DISCOVERY_FEED_CACHE, cache_key, payload, DISCOVERY_FEED_CACHE_MAX_ENTRIES)
@@ -1436,7 +1448,7 @@ def _load_discovery(category: str | None = None, product_type: str | None = None
 
 
 @app.get("/api/discovery/feeds")
-async def discovery_feeds(request: Request, category: str | None = None, product_type: str | None = None, limit: int = 16): return _load_discovery(category, product_type, limit, optional_user_id(request))
+async def discovery_feeds(request: Request, category: str | None = None, product_type: str | None = None, limit: int = 16, session_seed: str | None = None): return _load_discovery(category, product_type, limit, optional_user_id(request), session_seed)
 
 @app.get("/api/discovery/hidden-gems")
 async def hidden_gems(category: str | None = None, product_type: str | None = None, limit: int = 16): return {"products":_load_discovery(category, product_type, limit)["hidden_gems"]}
@@ -1506,6 +1518,34 @@ async def brands_health(x_admin_key: str | None = Header(default=None)):
     except Exception as error:
         logging.exception("Brand health scan failed.")
         raise HTTPException(status_code=502, detail="Brand health is temporarily unavailable.") from error
+
+
+EVAL_RUNS_DIR = Path(__file__).resolve().parent / "eval" / "runs"
+INGESTION_AUDIT_DIR = Path(__file__).resolve().parent.parent / "data" / "ingestion_audit"
+
+
+@app.get("/api/admin/dashboard")
+async def admin_dashboard(x_admin_key: str | None = Header(default=None)):
+    require_admin_key(x_admin_key)
+    try:
+        brands, products, failures = load_catalog(app.state.supabase)
+        catalog_report = build_catalog_report(brands, products, failures)
+        category_name_by_id = {row.get("id"): row.get("name") for row in fetch_all(app.state.supabase, "categories")}
+    except Exception as error:
+        logging.exception("Admin dashboard catalog scan failed.")
+        raise HTTPException(status_code=502, detail="Catalog data is temporarily unavailable.") from error
+    return {
+        "catalog_health": {
+            key: value for key, value in catalog_report.items() if key not in {"issues", "duplicate_groups", "brand_health"}
+        },
+        "confidence_distribution": confidence_distribution(products),
+        "caption_like_names": caption_like_names(products),
+        "category_audience_breakdown": category_audience_breakdown(products, category_name_by_id),
+        "brand_category_breakdown": brand_category_breakdown(brands),
+        "search_analytics": search_analytics(read_search_query_log()),
+        "relevance_runs": read_eval_run_history(EVAL_RUNS_DIR),
+        "ingestion_runs": read_ingestion_runs(INGESTION_AUDIT_DIR),
+    }
 
 
 @app.get("/api/brands/{brand_id}/products")
@@ -1668,6 +1708,8 @@ async def discover(
     if user_id is not None and getattr(app.state, "personalization", None) is not None:
         personalization_context = load_personalization_context(app.state.personalization, user_id)
 
+    cache_stats: dict[str, Any] = {}
+    search_started_at = time.perf_counter()
     results = run_match_products_rpc(
         supabase=supabase,
         query_embedding=query_embedding,
@@ -1687,7 +1729,16 @@ async def discover(
         retrieval_mode=SEARCH_MODE,
         rerank_mode=RERANK,
         query_text=text_query if search_mode == "text" else None,
+        cache_stats=cache_stats,
     )
+    search_latency_ms = (time.perf_counter() - search_started_at) * 1000
+    # Analytics only -- text queries alone (an image upload has no query text to
+    # aggregate into "top queries"), and never anything that identifies who searched.
+    if search_mode == "text" and text_query and text_query.strip():
+        try:
+            log_search_query(text_query.strip(), len(results), search_latency_ms, cache_stats.get("hit", False))
+        except OSError:
+            logging.exception("Could not write search query log.")
     best_matches, more_like_this = split_search_groups(results, query_attributes)
     debug_enabled = debug and os.getenv("ENVIRONMENT", "development").lower() != "production"
     return {
