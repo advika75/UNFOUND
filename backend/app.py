@@ -116,6 +116,17 @@ SEARCH_MODE = os.getenv("SEARCH_MODE", "vector")
 # pool instead; soft audience penalty rather than hard gender filter), or "gated"
 # (apply_final_ranking decides the surviving candidates, rerank.py only re-orders them). Text search only.
 RERANK = os.getenv("RERANK", "off")
+# An exact_type_products augmentation row that has neither real semantic
+# similarity nor any lexical (query-token) overlap has nothing but a type-word
+# match buried somewhere in its text supporting its presence -- exactly how a
+# misclassified "state.of.mitch Black Leather Jacket" (an AI caption's
+# incidental "...and blue jeans" background mention) became the sole result for
+# "men's jeans" at final_score=0.716 despite semantic_similarity=0.0. 0.05 is
+# a small floor, not a quality bar: it only catches true zero/near-zero
+# similarity, not merely weak matches, and never applies to a real vector
+# retrieval candidate (only to augmentation rows, which can otherwise look
+# deceptively well-supported from text-overlap signals alone).
+ZERO_SUPPORT_SIMILARITY_FLOOR = 0.05
 HYBRID_RETRIEVER_LIMIT = 100
 HYBRID_RRF_K = 60
 DISCOVERY_FEED_CACHE_MAX_ENTRIES = 64
@@ -745,6 +756,21 @@ def apply_final_ranking(
             )
         scored.append({**product, "final_score": final_score, "score_breakdown": signals})
 
+    if search_mode == "text":
+        # An augmentation row with no real semantic similarity AND no lexical
+        # overlap at all has nothing behind it but an incidental type-word match
+        # somewhere in its text -- drop it outright rather than let it compete
+        # on category/type/family signals a genuine candidate would also have.
+        # Unconditional: unlike the narrowing stages below, there's no
+        # "only if non-empty" fallback here, because dropping these rows never
+        # removes real evidence, only rows that had none to begin with.
+        scored = [
+            product for product in scored
+            if not product.get("_from_augmentation")
+            or float(product.get("score_breakdown", {}).get("semantic_similarity") or 0) >= ZERO_SUPPORT_SIMILARITY_FLOOR
+            or float(product.get("score_breakdown", {}).get("text_match") or 0) > 0
+        ]
+
     # An explicit product request should not degrade into unrelated fashion
     # merely because those items have the nearest available CLIP vectors.
     # Unconditional on purpose (no "leaves something" fallback like the type
@@ -1025,7 +1051,13 @@ def run_match_products_rpc(
                 "exact_type_products",
                 {"type_pattern": type_pattern, "exclude_ids": existing_ids, "row_limit": 100},
             ).execute()
-            products.extend(format_product(row) for row in response.data or [])
+            for row in response.data or []:
+                formatted = format_product(row)
+                # Flags this row for apply_final_ranking's zero-support floor: an
+                # exact_type_products row has no retrieval-side relevance signal of
+                # its own (no embedding score), unlike a real match_products candidate.
+                formatted["_from_augmentation"] = True
+                products.append(formatted)
         except Exception:
             logging.exception("Exact-type catalog augmentation failed; continuing with vector candidates.")
     ranking_category_id = category_id

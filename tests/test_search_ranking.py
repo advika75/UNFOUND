@@ -149,6 +149,43 @@ def test_a_single_low_evidence_match_cannot_evict_the_pool():
     assert set(names) == {"Misclassified leather jacket", "Baggy denim jeans", "Relaxed fit jeans"}
 
 
+def test_zero_support_augmentation_row_with_no_similarity_or_lexical_support_is_dropped():
+    # Nothing behind this candidate's presence at all: no real embedding
+    # similarity and not one query token anywhere in its own text. This is the
+    # shape of the "state.of.mitch Black Leather Jacket" failure -- a stray,
+    # incidental word pulled it into the pool with nothing else supporting it.
+    weak = candidate("Mystery find", "Misc", 0.02, _from_augmentation=True)
+    ranked = apply_final_ranking(
+        [weak], category_id=None, sort_by=None, search_mode="text",
+        query_attributes={"query_tokens": ["red", "dress"]},
+    )
+    assert ranked == []
+
+
+def test_augmentation_row_survives_with_lexical_support_despite_zero_similarity():
+    # The floor is similarity AND no lexical hit -- real word overlap with the
+    # query is enough evidence to keep a row even with zero embedding similarity.
+    item = candidate("Red cotton dress", "Dresses", 0.0, _from_augmentation=True)
+    ranked = apply_final_ranking(
+        [item], category_id=None, sort_by=None, search_mode="text",
+        query_attributes={"query_tokens": ["red", "dress"]},
+    )
+    assert [r["product_name"] for r in ranked] == ["Red cotton dress"]
+
+
+def test_the_zero_support_floor_never_applies_to_a_real_retrieval_candidate():
+    # Not from augmentation -- a genuinely weak vector match must never be
+    # dropped just for low similarity and no lexical overlap; this floor is
+    # scoped to augmentation rows specifically, which have no retrieval-side
+    # relevance signal backing them at all.
+    item = candidate("Something else entirely", "Misc", 0.01)
+    ranked = apply_final_ranking(
+        [item], category_id=None, sort_by=None, search_mode="text",
+        query_attributes={"query_tokens": ["red", "dress"]},
+    )
+    assert [r["product_name"] for r in ranked] == ["Something else entirely"]
+
+
 def test_text_hybrid_ranking_prioritizes_exact_type_and_colour():
     attributes = extract_query_attributes("black oversized cargo pants")
     ranked = apply_final_ranking(
