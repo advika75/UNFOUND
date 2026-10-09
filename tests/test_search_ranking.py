@@ -1,5 +1,6 @@
 import random
 
+import backend.app as appmod
 from backend.app import (
     TIE_BREAK_EPSILON,
     apply_final_ranking,
@@ -149,7 +150,11 @@ def test_a_single_low_evidence_match_cannot_evict_the_pool():
     assert set(names) == {"Misclassified leather jacket", "Baggy denim jeans", "Relaxed fit jeans"}
 
 
-def test_zero_support_augmentation_row_with_no_similarity_or_lexical_support_is_dropped():
+def test_zero_support_augmentation_row_with_no_similarity_or_lexical_support_is_dropped(monkeypatch):
+    # Only enforced when AUGMENTATION_SCORING=similarity -- in "none" mode every
+    # augmentation row's similarity is an unconditional 0.0 by construction, so
+    # the floor would be meaningless (every augmentation row would qualify).
+    monkeypatch.setattr(appmod, "AUGMENTATION_SCORING", "similarity")
     # Nothing behind this candidate's presence at all: no real embedding
     # similarity and not one query token anywhere in its own text. This is the
     # shape of the "state.of.mitch Black Leather Jacket" failure -- a stray,
@@ -162,7 +167,8 @@ def test_zero_support_augmentation_row_with_no_similarity_or_lexical_support_is_
     assert ranked == []
 
 
-def test_augmentation_row_survives_with_lexical_support_despite_zero_similarity():
+def test_augmentation_row_survives_with_lexical_support_despite_zero_similarity(monkeypatch):
+    monkeypatch.setattr(appmod, "AUGMENTATION_SCORING", "similarity")
     # The floor is similarity AND no lexical hit -- real word overlap with the
     # query is enough evidence to keep a row even with zero embedding similarity.
     item = candidate("Red cotton dress", "Dresses", 0.0, _from_augmentation=True)
@@ -173,7 +179,8 @@ def test_augmentation_row_survives_with_lexical_support_despite_zero_similarity(
     assert [r["product_name"] for r in ranked] == ["Red cotton dress"]
 
 
-def test_the_zero_support_floor_never_applies_to_a_real_retrieval_candidate():
+def test_the_zero_support_floor_never_applies_to_a_real_retrieval_candidate(monkeypatch):
+    monkeypatch.setattr(appmod, "AUGMENTATION_SCORING", "similarity")
     # Not from augmentation -- a genuinely weak vector match must never be
     # dropped just for low similarity and no lexical overlap; this floor is
     # scoped to augmentation rows specifically, which have no retrieval-side
@@ -184,6 +191,19 @@ def test_the_zero_support_floor_never_applies_to_a_real_retrieval_candidate():
         query_attributes={"query_tokens": ["red", "dress"]},
     )
     assert [r["product_name"] for r in ranked] == ["Something else entirely"]
+
+
+def test_zero_support_floor_is_not_enforced_when_augmentation_scoring_is_none(monkeypatch):
+    # Default mode: augmentation rows' similarity is an unconditional 0.0, so
+    # applying the floor here would drop every augmentation row regardless of
+    # real relevance -- the floor must simply not run in this mode.
+    monkeypatch.setattr(appmod, "AUGMENTATION_SCORING", "none")
+    weak = candidate("Mystery find", "Misc", 0.0, _from_augmentation=True)
+    ranked = apply_final_ranking(
+        [weak], category_id=None, sort_by=None, search_mode="text",
+        query_attributes={"query_tokens": ["red", "dress"]},
+    )
+    assert [r["product_name"] for r in ranked] == ["Mystery find"]
 
 
 def test_text_hybrid_ranking_prioritizes_exact_type_and_colour():
@@ -384,6 +404,30 @@ def test_gap_just_outside_epsilon_is_not_tie_broken_by_id():
     lower_score_lower_id = {"id": "a", "final_score": 0.50}
     result = sorted([lower_score_lower_id, higher_score_higher_id], key=deterministic_rank_key)
     assert [p["id"] for p in result] == ["z", "a"]
+
+
+def test_tie_break_prefers_higher_classifier_confidence_over_id():
+    # Not retrieval/RPC order (exact_type_products only orders by p.ctid, physical
+    # storage position, not a real signal) -- classifier_confidence is a genuine,
+    # stable product property, and decides before id does.
+    lower_confidence_higher_id = {"id": "z", "final_score": 0.50, "classifier_confidence": 0.35}
+    higher_confidence_lower_id = {"id": "a", "final_score": 0.50, "classifier_confidence": 0.95}
+    result = sorted([lower_confidence_higher_id, higher_confidence_lower_id], key=deterministic_rank_key)
+    assert [p["id"] for p in result] == ["a", "z"]
+
+
+def test_tie_break_falls_back_to_has_image_when_confidence_ties():
+    no_image_lower_id = {"id": "a", "final_score": 0.50, "classifier_confidence": 0.5, "image_url": None}
+    has_image_higher_id = {"id": "z", "final_score": 0.50, "classifier_confidence": 0.5, "image_url": "https://x/y.jpg"}
+    result = sorted([no_image_lower_id, has_image_higher_id], key=deterministic_rank_key)
+    assert [p["id"] for p in result] == ["z", "a"]
+
+
+def test_tie_break_falls_back_to_id_only_when_confidence_and_image_both_tie():
+    a = {"id": "a", "final_score": 0.50, "classifier_confidence": 0.5, "image_url": "https://x/y.jpg"}
+    z = {"id": "z", "final_score": 0.50, "classifier_confidence": 0.5, "image_url": "https://x/y.jpg"}
+    result = sorted([z, a], key=deterministic_rank_key)
+    assert [p["id"] for p in result] == ["a", "z"]
 
 
 def test_missing_id_or_final_score_does_not_crash_the_sort():

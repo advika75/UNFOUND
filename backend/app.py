@@ -116,6 +116,11 @@ SEARCH_MODE = os.getenv("SEARCH_MODE", "vector")
 # pool instead; soft audience penalty rather than hard gender filter), or "gated"
 # (apply_final_ranking decides the surviving candidates, rerank.py only re-orders them). Text search only.
 RERANK = os.getenv("RERANK", "off")
+# "none" (default): exact_type_products augmentation rows get no embedding signal
+# at all. "similarity": call exact_type_products_scored instead (see
+# Niche_brand/supabase/exact_type_products_similarity_migration.sql) to give
+# augmentation rows a real, differentiating semantic_similarity.
+AUGMENTATION_SCORING = os.getenv("AUGMENTATION_SCORING", "none")
 # An exact_type_products augmentation row that has neither real semantic
 # similarity nor any lexical (query-token) overlap has nothing but a type-word
 # match buried somewhere in its text supporting its presence -- exactly how a
@@ -126,6 +131,12 @@ RERANK = os.getenv("RERANK", "off")
 # similarity, not merely weak matches, and never applies to a real vector
 # retrieval candidate (only to augmentation rows, which can otherwise look
 # deceptively well-supported from text-overlap signals alone).
+#
+# Only enforced when AUGMENTATION_SCORING=similarity: in "none" mode every
+# augmentation row's similarity is an unconditional 0.0 by construction (no
+# embedding was ever computed for it), so the floor would just be re-deriving
+# "is this an augmentation row" via a fake score instead of checking real
+# similarity -- it would drop rows this floor was never meant to judge.
 ZERO_SUPPORT_SIMILARITY_FLOOR = 0.05
 HYBRID_RETRIEVER_LIMIT = 100
 HYBRID_RRF_K = 60
@@ -166,15 +177,26 @@ TIE_BREAK_EPSILON = 1e-5
 TIE_BREAK_KEY = "id"
 
 
-def deterministic_rank_key(product: dict[str, Any]) -> tuple[float, str]:
-    """Sort key for descending final_score with a TIE_BREAK_KEY tie-break inside TIE_BREAK_EPSILON.
+def deterministic_rank_key(product: dict[str, Any]) -> tuple[float, float, int, str]:
+    """Sort key for descending final_score with a meaningful, deterministic tie-break
+    inside TIE_BREAK_EPSILON: classifier_confidence desc, then has-image desc, then
+    TIE_BREAK_KEY (product id) as the final, always-decisive key.
 
     Rounding final_score to TIE_BREAK_EPSILON-wide buckets (rather than comparing pairwise) is what
     makes this a total order: noise-scale differences collapse into the same bucket and are then
-    resolved by TIE_BREAK_KEY alone, so sorting stays a plain, correct, transitive comparison.
+    resolved by the tie-break chain, so sorting stays a plain, correct, transitive comparison.
+
+    classifier_confidence and has-image were chosen over retrieval/RPC return order on purpose:
+    exact_type_products orders its rows `order by p.ctid` -- Postgres's internal physical row
+    position, not a semantic signal. It's deterministic for an unchanged table, but ctid can move
+    after a VACUUM or UPDATE rewrites a row, so depending on it would make ranking fragile in a way
+    that has nothing to do with relevance. classifier_confidence and image presence are both real,
+    stable product properties instead.
     """
     score = float(product.get("final_score") or 0.0)
-    return (-round(score / TIE_BREAK_EPSILON), str(product.get(TIE_BREAK_KEY) or ""))
+    confidence = float(product.get("classifier_confidence") or 0.0)
+    has_image = 0 if product.get("image_url") else 1  # 0 (has an image) sorts before 1
+    return (-round(score / TIE_BREAK_EPSILON), -confidence, has_image, str(product.get(TIE_BREAK_KEY) or ""))
 
 TEXT_RANKING_WEIGHTS = {
     "semantic_similarity": float(os.getenv("TEXT_WEIGHT_SEMANTIC", "0.22")),
@@ -756,9 +778,15 @@ def apply_final_ranking(
             )
         scored.append({**product, "final_score": final_score, "score_breakdown": signals})
 
-    if search_mode == "text":
-        # An augmentation row with no real semantic similarity AND no lexical
-        # overlap at all has nothing behind it but an incidental type-word match
+    if search_mode == "text" and AUGMENTATION_SCORING == "similarity":
+        # Only meaningful when augmentation rows carry a real, computed
+        # similarity (AUGMENTATION_SCORING=similarity) -- in "none" mode every
+        # augmentation row's similarity is an unconditional 0.0 by construction
+        # (see ZERO_SUPPORT_SIMILARITY_FLOOR's own comment), so this check would
+        # just be re-deriving "is this an augmentation row" from a fake score.
+        #
+        # A row with neither real semantic similarity nor any lexical overlap
+        # at all has nothing behind it but an incidental type-word match
         # somewhere in its text -- drop it outright rather than let it compete
         # on category/type/family signals a genuine candidate would also have.
         # Unconditional: unlike the narrowing stages below, there's no
