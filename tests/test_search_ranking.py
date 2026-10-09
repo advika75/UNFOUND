@@ -36,10 +36,13 @@ def test_natural_language_query_understanding_extracts_constraints():
 
 
 def test_gender_signal_rewards_requested_audience_and_accepts_unisex():
+    # Pool kept above MIN_NARROW_SURVIVORS so the men's item's explicit exclusion
+    # is actually visible in the output (below-floor behavior has its own test).
     attributes = extract_query_attributes("women's co-ord set")
     ranked = apply_final_ranking(
         [
             candidate("Women's matching set", "Women Sets", 0.70, audience="women"),
+            candidate("Printed matching set", "Women Sets", 0.66, audience="women"),
             candidate("Men's matching set", "Men Sets", 0.70, audience="men"),
             candidate("Unisex matching set", "Unisex Sets", 0.70, audience="unisex"),
         ],
@@ -49,8 +52,8 @@ def test_gender_signal_rewards_requested_audience_and_accepts_unisex():
         query_attributes=attributes,
     )
     assert ranked[0]["score_breakdown"]["gender_match"] == 1
-    assert ranked[1]["score_breakdown"]["gender_match"] == 0.75
-    assert len(ranked) == 2
+    assert "Men's matching set" not in [row["product_name"] for row in ranked]
+    assert len(ranked) == 3
 
 
 def test_gender_match_score_reads_category_audience_when_product_audience_is_empty():
@@ -79,20 +82,71 @@ def test_gender_signal_falls_back_to_category_audience_when_product_audience_is_
     # wired in, a "women's kurti" query with a realistic hybrid-fused candidate
     # set (121 real kurtis, none with a populated product-level audience field)
     # collapsed from 121 candidates to 2 survivors under the gender hard filter.
+    # Pool kept above MIN_NARROW_SURVIVORS so narrowing actually applies here --
+    # the below-floor case (narrowing skipped) has its own dedicated test.
     attributes = extract_query_attributes("women's kurti")
     ranked = apply_final_ranking(
         [
             candidate("Cotton Kurtis", "Kurtis", 0.70, category_audience="WOMEN"),
             candidate("Printed Kurti", "Kurtis", 0.65, category_audience="WOMEN"),
-            candidate("Men's Formal Shirt", "Men Shirts", 0.60, category_audience="MEN"),
+            candidate("Embroidered Kurti", "Kurtis", 0.60, category_audience="WOMEN"),
+            candidate("Men's Formal Shirt", "Men Shirts", 0.55, category_audience="MEN"),
         ],
         category_id=None,
         sort_by=None,
         search_mode="text",
         query_attributes=attributes,
     )
-    assert [row["product_name"] for row in ranked] == ["Cotton Kurtis", "Printed Kurti"]
+    assert [row["product_name"] for row in ranked] == ["Cotton Kurtis", "Printed Kurti", "Embroidered Kurti"]
     assert ranked[0]["score_breakdown"]["gender_match"] == 1.0
+
+
+def test_a_mens_query_keeps_unknown_audience_items():
+    # Blank/unknown audience is not the same as "wrong gender" -- gender_match_score
+    # scores both as 0.0, but the narrowing gate must only evict a confirmed
+    # contradiction. ~96% of the real catalog has no audience signal anywhere; a
+    # narrowing gate that treats "unknown" as "excluded" would evict almost the
+    # whole catalog on every gendered query.
+    attributes = extract_query_attributes("men's jacket")
+    ranked = apply_final_ranking([
+        candidate("Classic bomber jacket", "Jackets", .70),
+        candidate("Utility jacket", "Jackets", .68),
+        candidate("Quilted jacket", "Jackets", .66),
+    ], category_id=None, sort_by=None, search_mode="text", query_attributes=attributes)
+    names = [row["product_name"] for row in ranked]
+    assert set(names) == {"Classic bomber jacket", "Utility jacket", "Quilted jacket"}
+
+
+def test_a_mens_query_drops_explicit_women_items():
+    # A confirmed opposite-gender signal is a real contradiction, not just absent
+    # evidence, and must still be excluded once the pool is comfortably above
+    # MIN_NARROW_SURVIVORS.
+    attributes = extract_query_attributes("men's jacket")
+    ranked = apply_final_ranking([
+        candidate("Men's bomber jacket", "Men Jackets", .70, audience="men"),
+        candidate("Men's utility jacket", "Men Jackets", .68, audience="men"),
+        candidate("Men's quilted jacket", "Men Jackets", .66, audience="men"),
+        candidate("Women's cropped jacket", "Women Jackets", .99, audience="women"),
+    ], category_id=None, sort_by=None, search_mode="text", query_attributes=attributes)
+    names = [row["product_name"] for row in ranked]
+    assert "Women's cropped jacket" not in names
+    assert set(names) == {"Men's bomber jacket", "Men's utility jacket", "Men's quilted jacket"}
+
+
+def test_a_single_low_evidence_match_cannot_evict_the_pool():
+    # The exact men's-jeans regression: one candidate with a confident (here,
+    # possibly wrong) audience tag must never be allowed to narrow the result set
+    # down to just itself when the rest of a reasonable pool has no gender
+    # evidence at all. Below MIN_NARROW_SURVIVORS, narrowing is skipped entirely
+    # and every non-contradicting candidate stays.
+    attributes = extract_query_attributes("men's jeans")
+    ranked = apply_final_ranking([
+        candidate("Misclassified leather jacket", "Jeans", .10, audience="men"),
+        candidate("Baggy denim jeans", "Jeans", .80),
+        candidate("Relaxed fit jeans", "Jeans", .75),
+    ], category_id=None, sort_by=None, search_mode="text", query_attributes=attributes)
+    names = [row["product_name"] for row in ranked]
+    assert set(names) == {"Misclassified leather jacket", "Baggy denim jeans", "Relaxed fit jeans"}
 
 
 def test_text_hybrid_ranking_prioritizes_exact_type_and_colour():
@@ -152,13 +206,21 @@ def test_specific_crop_top_wins_over_generic_top_and_isolated_from_dresses():
 
 
 def test_explicit_audience_and_type_constraints_are_hard_gates():
+    # Enough same-type women's candidates to stay at/above MIN_NARROW_SURVIVORS
+    # after the men's item is excluded, so the gender gate actually narrows here
+    # (the below-floor "don't narrow down to 1" case has its own dedicated test).
     attributes = extract_query_attributes("women kurta")
     ranked = apply_final_ranking([
         candidate("Women's cotton kurta", "Women Ethnic", .55, audience="women"),
+        candidate("Women's printed kurta", "Women Ethnic", .60, audience="women"),
+        candidate("Women's embroidered kurta", "Women Ethnic", .58, audience="women"),
         candidate("Men's cotton kurta", "Men Ethnic", .99, audience="men"),
         candidate("Women's festive dress", "Women Dresses", .99, audience="women"),
     ], category_id=None, sort_by=None, search_mode="text", query_attributes=attributes)
-    assert [row["product_name"] for row in ranked] == ["Women's cotton kurta"]
+    names = [row["product_name"] for row in ranked]
+    assert "Men's cotton kurta" not in names
+    assert "Women's festive dress" not in names
+    assert set(names) == {"Women's cotton kurta", "Women's printed kurta", "Women's embroidered kurta"}
 
 
 def test_kurta_and_jewellery_family_gates_reject_unrelated_products():

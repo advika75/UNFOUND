@@ -341,6 +341,13 @@ function normalizeProduct(row) {
     id: row.id || row.product_url,
     product_name:
       row.product_name || row.item_name || row.name || "Found piece",
+    // Server-computed display-layer fallback for a caption-like stored name (see
+    // backend/product_titles.py) -- falls back to product_name itself for
+    // locally-built rows (e.g. a moodboard image upload) that never went through
+    // the API's format_product().
+    display_name: row.display_name || row.product_name || row.item_name || row.name || "Found piece",
+    name_is_caption_like: Boolean(row.name_is_caption_like),
+    caption_preview: row.caption_preview || null,
     brand_name: row.brand_name || row.brand || "Independent label",
     category: row.category || row.category_name || row.subcategory || "Fashion",
     price: Number(row.price) > 0 ? Number(row.price) : null,
@@ -556,8 +563,11 @@ function ProductCard({ product, saved, onSave, onOpen, onBoard }) {
       <div className="product-copy">
         <p>{product.brand_name}</p>
         <button className="product-title" onClick={() => onOpen(product)}>
-          {product.product_name}
+          {product.display_name}
         </button>
+        {product.name_is_caption_like && product.caption_preview && (
+          <p className="product-caption-preview">{product.caption_preview}</p>
+        )}
         <div className="product-line">
           {hasPrice(product.price) && <strong>{formatPrice(product.price)}</strong>}
           {gemScore(product) !== null && <span>💎 {gemScore(product)}{product.gem_label ? ` · ${product.gem_label}` : ""}</span>}
@@ -1899,7 +1909,10 @@ function ProductDetail({ product, products, state, actions, close }) {
         </div>
         <div className="detail-copy">
           <p className="kicker">UNFOUND PRODUCT</p>
-          <h1>{product.product_name}</h1>
+          <h1>{product.display_name}</h1>
+          {product.name_is_caption_like && product.caption_preview && (
+            <p className="product-caption-preview">{product.caption_preview}</p>
+          )}
           <h3>{product.brand_name}</h3>
           <div className="score-row">
             {gemScore(product) !== null && <b>💎 {gemScore(product)} {product.gem_label || ""}</b>}

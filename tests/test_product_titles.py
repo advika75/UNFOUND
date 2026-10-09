@@ -1,4 +1,4 @@
-from backend.product_titles import constructed_title, looks_like_caption_or_alt_text
+from backend.product_titles import constructed_title, display_name_for, looks_like_caption_or_alt_text
 
 
 def test_flags_instagram_alt_text_leakage():
@@ -97,3 +97,45 @@ def test_constructed_title_never_uses_the_bad_name_itself_as_a_source():
     title = constructed_title(row)
     assert title == "Reeia Red Dress"
     assert title != row["product_name"]
+
+
+def test_display_name_passes_a_good_product_name_through_untouched():
+    # The explicit requirement: a good name must not get a brand/category fallback.
+    product = {"product_name": "Embroidered Kurti", "brand_name": "BYUTIFY", "category": "Kurtis"}
+    result = display_name_for(product)
+    assert result == {"display_name": "Embroidered Kurti", "name_is_caption_like": False, "caption_preview": None}
+
+
+def test_display_name_falls_back_to_brand_and_category_for_a_caption_like_name():
+    product = {
+        "product_name": "✨ Pack With Me for Asma 💝 Every order is packed with love, care, and a little sparkle",
+        "brand_name": "shadesofshine.in",
+        "category": "Jewellery",
+    }
+    result = display_name_for(product)
+    assert result["display_name"] == "Shadesofshine · Jewellery"
+    assert result["name_is_caption_like"] is True
+    assert result["caption_preview"] == product["product_name"]  # short enough, shown in full
+
+
+def test_display_name_truncates_a_long_caption_preview():
+    long_caption = "This latest drop was all about joyful details, easy colour and pieces that feel good today, and we think you'll love wearing it just as much as we loved making it"
+    product = {"product_name": long_caption, "brand_name": "somebrand", "category": "Tops"}
+    result = display_name_for(product)
+    assert result["name_is_caption_like"] is True
+    assert result["caption_preview"] is not None
+    assert len(result["caption_preview"]) <= 101  # MAX_CAPTION_PREVIEW_CHARS + ellipsis
+    assert result["caption_preview"].endswith("…")
+    assert long_caption.startswith(result["caption_preview"].rstrip("…").rstrip())
+
+
+def test_display_name_never_mutates_the_original_product_name():
+    product = {"product_name": "Photo by brand on June 09.", "brand_name": "brand", "category": "Tops"}
+    display_name_for(product)
+    assert product["product_name"] == "Photo by brand on June 09."
+
+
+def test_display_name_handles_missing_brand_or_category_gracefully():
+    result = display_name_for({"product_name": "Photo by someone on June 09.", "brand_name": "", "category": ""})
+    assert result["name_is_caption_like"] is True
+    assert result["display_name"]  # never blank, even with nothing to build from

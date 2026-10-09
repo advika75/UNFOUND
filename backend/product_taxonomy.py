@@ -149,19 +149,27 @@ def family_match(text: str, family: str | None) -> bool:
     return not family or any(_contains(text.lower(), term) for term in family_terms(family))
 
 
+# Shared by gender_match_score and gender_explicitly_contradicts so the two can
+# never disagree about which fields carry audience evidence. category_audience
+# comes from categories.audience (e.g. "WOMEN" for the "Kurtis" category) -- a
+# reliable signal even when the category's own display name has no literal
+# gender word in it, and far more complete than the product's own audience
+# column (populated on well under 4% of rows). Checked first as the most
+# trustworthy source.
+_AUDIENCE_FIELDS = ("category_audience", "audience", "category", "normalized_main_category", "normalized_subcategory")
+_SPECIFIC_GENDERS = ("men", "women")
+
+
+def _audience_text(product: dict[str, Any]) -> str:
+    return " ".join(str(product.get(field) or "") for field in _AUDIENCE_FIELDS).lower()
+
+
 def gender_match_score(product: dict[str, Any], requested_gender: str | None) -> float:
     """The one gender/audience gate every gendered path (search, discovery, category
     browse) should call -- never reimplement this check separately, it will drift."""
     if not requested_gender:
         return 0.5
-    # category_audience comes from categories.audience (e.g. "WOMEN" for the
-    # "Kurtis" category) -- a reliable signal even when the category's own
-    # display name has no literal gender word in it, and far more complete
-    # than the product's own audience column (populated on well under 4% of
-    # rows). Checked first since it's the most trustworthy source.
-    audience = " ".join(str(product.get(field) or "") for field in (
-        "category_audience", "audience", "category", "normalized_main_category", "normalized_subcategory"
-    )).lower()
+    audience = _audience_text(product)
     # Word-boundary match, not plain substring: "men" in "women" is True for Python's
     # `in`, which would wrongly pass a women's-audience row for a men's-gated rail.
     if _contains(audience, requested_gender):
@@ -169,6 +177,26 @@ def gender_match_score(product: dict[str, Any], requested_gender: str | None) ->
     if _contains(audience, "unisex"):
         return 0.75
     return 0.0
+
+
+def gender_explicitly_contradicts(product: dict[str, Any], requested_gender: str | None) -> bool:
+    """True only when the product's own audience evidence names a *different*,
+    specific gender than the one requested -- never for blank/absent evidence
+    (unknown is not the same as contradicted) and never for "unisex" (a valid,
+    explicit match). gender_match_score() collapses both "no evidence" and "the
+    opposite gender" to the same 0.0, which is correct for scoring but wrong for
+    deciding which candidates to evict from a results pool -- that needs this
+    finer distinction instead.
+    """
+    if not requested_gender:
+        return False
+    requested = requested_gender.lower()
+    audience = _audience_text(product)
+    if not audience.strip():
+        return False
+    if _contains(audience, "unisex") or _contains(audience, requested):
+        return False
+    return any(_contains(audience, other) for other in _SPECIFIC_GENDERS if other != requested)
 
 
 def attach_category_audience(

@@ -35,6 +35,7 @@ from backend.personalization import (
     router as personalization_router,
 )
 from backend.category_quality import AUTO_CATEGORY_THRESHOLD, category_map, fetch_all, product_supports_category
+from backend.product_titles import display_name_for
 from backend.admin_dashboard import (
     brand_category_breakdown,
     caption_like_names,
@@ -56,6 +57,7 @@ from backend.product_taxonomy import (
     attach_category_audience,
     family_match,
     family_terms,
+    gender_explicitly_contradicts,
     gender_match_score,
     identify_product,
     type_match,
@@ -92,6 +94,14 @@ RECOMMEND_PRODUCT_LIMIT = 12
 RECOMMEND_BRAND_LIMIT = 6
 RECOMMEND_MATCH_THRESHOLD = 0.3
 EMBEDDING_DIMENSIONS = 512
+# Floor for apply_final_ranking's gender narrowing: never narrow a candidate pool
+# below this many survivors, even when only a few candidates clear the explicit-
+# contradiction filter. Protects against a single candidate (possibly itself
+# misclassified) unilaterally deciding the entire result set -- 3 is small enough
+# that a genuine, broad gender mismatch (the common, correct case) still narrows
+# normally, but large enough that nDCG/precision@10 is computed over more than one
+# point of evidence.
+MIN_NARROW_SURVIVORS = 3
 SEARCH_CACHE_TTL_SECONDS = 300
 # A warm Lambda container can live for hours, so both caches are bounded (LRU) as well as TTL'd.
 # Ceiling: ~30 KB per search entry (20 hydrated rows) -> 256 entries ~ 8 MB; ~60 KB per discovery
@@ -437,13 +447,21 @@ def format_product(row: dict[str, Any]) -> dict[str, Any]:
     if not category and category_id is not None:
         category = f"Category {category_id}"
     product_name = row.get("product_name") or row.get("item_name") or row.get("name") or "Untitled item"
+    brand_name = row.get("brand_name") or row.get("brand") or "Unknown brand"
     similarity_score = float(similarity or 0.0)
+    # Display-layer-only fallback for caption-like stored names (e.g. a raw
+    # Instagram caption that leaked into product_name at scrape time) -- the real
+    # product_name below is never changed; this only affects what's shown.
+    display = display_name_for({"product_name": product_name, "brand_name": brand_name, "category": category})
     return {
         "id": row.get("id"),
         "brand_id": row.get("brand_id"),
-        "brand_name": row.get("brand_name") or row.get("brand") or "Unknown brand",
+        "brand_name": brand_name,
         "product_name": product_name,
         "item_name": product_name,
+        "display_name": display["display_name"],
+        "name_is_caption_like": display["name_is_caption_like"],
+        "caption_preview": display["caption_preview"],
         "description": row.get("description") or "",
         "image_url": row.get("image_url") or row.get("thumbnail_url") or row.get("photo_url") or row.get("cover_url") or "",
         "product_url": row.get("product_url") or row.get("source_url") or "",
@@ -755,11 +773,26 @@ def apply_final_ranking(
         if type_filtered:
             scored = type_filtered
     if search_mode == "text" and attributes.get("gender"):
+        # Narrowing on gender_match > 0 used to double as "has confirmed evidence
+        # of the requested gender" -- but gender_match_score() returns 0.0 for BOTH
+        # "no audience evidence at all" and "a confirmed different gender", so that
+        # narrowing was silently evicting every blank-audience candidate (the vast
+        # majority of the catalog) along with genuinely wrong-gender ones. Only an
+        # explicit contradiction should remove a candidate; blank/unknown/unisex
+        # audience must pass through untouched.
         gender_filtered = [
             product for product in scored
-            if float(product.get("score_breakdown", {}).get("gender_match") or 0.0) > 0.0
+            if not gender_explicitly_contradicts(product, attributes.get("gender"))
         ]
-        if gender_filtered:
+        # A single candidate with a confident (and possibly wrong -- e.g. a
+        # misclassified product) audience match must never be able to single-
+        # handedly evict an entire otherwise-reasonable pool down to just itself.
+        # That is exactly what happened with "men's jeans": one misclassified
+        # product became the sole survivor. MIN_NARROW_SURVIVORS=3 is small enough
+        # that a real, broad gender mismatch (the common, correct case) still
+        # narrows normally, but large enough that no lone low-evidence item can
+        # unilaterally decide the entire result set.
+        if len(gender_filtered) >= MIN_NARROW_SURVIVORS:
             scored = gender_filtered
 
     if sort_by == "newest":

@@ -1,5 +1,12 @@
 from backend.app import extract_query_attributes
-from backend.product_taxonomy import attach_category_audience, family_match, gender_match_score, identify_product, type_match
+from backend.product_taxonomy import (
+    attach_category_audience,
+    family_match,
+    gender_explicitly_contradicts,
+    gender_match_score,
+    identify_product,
+    type_match,
+)
 
 
 def test_denim_bag_is_not_a_jeans_type_match():
@@ -64,6 +71,34 @@ def test_attach_category_audience_does_not_mutate_the_input_rows():
     product = {"id": "p1", "category_id": 8}
     attach_category_audience([product], [{"id": 8, "audience": "MEN"}])
     assert "category_audience" not in product
+
+
+def test_gender_explicitly_contradicts_is_false_with_no_requested_gender():
+    assert gender_explicitly_contradicts({"audience": "WOMEN"}, None) is False
+    assert gender_explicitly_contradicts({"audience": "WOMEN"}, "") is False
+
+
+def test_gender_explicitly_contradicts_is_false_for_blank_audience():
+    # Unknown is not the same as contradicted -- this is the exact distinction
+    # gender_match_score() can't make (it scores both 0.0).
+    assert gender_explicitly_contradicts({}, "men") is False
+    assert gender_explicitly_contradicts({"audience": None, "category": ""}, "men") is False
+
+
+def test_gender_explicitly_contradicts_is_false_for_matching_or_unisex_audience():
+    assert gender_explicitly_contradicts({"audience": "MEN"}, "men") is False
+    assert gender_explicitly_contradicts({"audience": "UNISEX"}, "men") is False
+    assert gender_explicitly_contradicts({"category": "Unisex Streetwear"}, "men") is False
+
+
+def test_gender_explicitly_contradicts_is_true_for_a_different_specific_gender():
+    assert gender_explicitly_contradicts({"audience": "WOMEN"}, "men") is True
+    assert gender_explicitly_contradicts({"category": "Men Shirts"}, "women") is True
+
+
+def test_gender_explicitly_contradicts_detects_the_opposite_word_inside_a_compound_category_name():
+    assert gender_explicitly_contradicts({"category": "Women Jeans"}, "men") is True  # real word "women", a real contradiction
+    assert gender_explicitly_contradicts({"audience": "WOMEN"}, "women") is False  # matches the request, not a contradiction
 
 
 def test_attach_category_audience_accepts_a_dict_values_view_like_category_map_returns():

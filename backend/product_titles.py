@@ -91,6 +91,29 @@ def _presentable_brand(brand_name: str | None) -> str:
     return " ".join(piece.capitalize() for piece in pieces) if pieces else name.title()
 
 
+MAX_CAPTION_PREVIEW_CHARS = 100
+
+
+def display_name_for(product: dict[str, Any]) -> dict[str, Any]:
+    """Display-layer-only fallback -- never writes back to product_name itself (see
+    module docstring: that's a separate, explicit, not-yet-built step). Returns what
+    the API/frontend should show in place of a caption-like stored name: a real,
+    presentable title built from brand and category (the two fields virtually every
+    product has, unlike colour/type -- see constructed_title(), which only has
+    enough evidence to build a title for ~10% of flagged products), plus the
+    original caption kept visible as secondary text rather than silently discarded.
+    A good, already-presentable name passes through untouched.
+    """
+    name = str(product.get("product_name") or "")
+    if not looks_like_caption_or_alt_text(name):
+        return {"display_name": name, "name_is_caption_like": False, "caption_preview": None}
+    brand = _presentable_brand(product.get("brand_name"))
+    category = str(product.get("category") or "").strip()
+    display_name = f"{brand} · {category}" if brand and category else brand or category or "Untitled piece"
+    preview = name if len(name) <= MAX_CAPTION_PREVIEW_CHARS else name[:MAX_CAPTION_PREVIEW_CHARS].rstrip() + "…"
+    return {"display_name": display_name, "name_is_caption_like": True, "caption_preview": preview}
+
+
 def constructed_title(row: dict[str, Any]) -> str | None:
     """"{Brand} {Colour} {Product Type}" built from the row's brand and its own
     description/name text -- never from the bad name being replaced. Returns None
