@@ -1,0 +1,180 @@
+{
+  "seed": "unfound-holes-v1",
+  "depth": 10,
+  "configs": [
+    "current_top10"
+  ],
+  "queries": {
+    "q003": {
+      "query": "kurti",
+      "items": [
+        "10d4cfc1-7fc7-4faa-9ac6-523d7e1ea87d",
+        "2bf00190-3101-4869-a2c4-f86012f2e378",
+        "3393e00a-d822-48c5-86a5-665f1ca05c61",
+        "49cb9194-f213-4f89-ba62-9b4488aea59e",
+        "258368a9-e357-40ca-8991-0f2b29a98c38"
+      ]
+    },
+    "q007": {
+      "query": "sneakers",
+      "items": [
+        "c6dfafc6-6723-4ee0-a87f-23425ebdc2a6"
+      ]
+    },
+    "q009": {
+      "query": "co-ord set",
+      "items": [
+        "6d5525cb-2540-4380-892d-0ad7a019d5d9"
+      ]
+    },
+    "q010": {
+      "query": "sunglasses",
+      "items": [
+        "14bb672e-f5bd-4f38-a392-4f909c902901",
+        "1dab4eeb-2a68-4f7e-a4d5-a85ca4969c24",
+        "f6b577c3-de76-4a5f-8d40-630af77c91f2",
+        "c684fa0b-87c3-447a-bb92-28d67d1e519e",
+        "e71c9701-1d37-47bd-b730-e16890cfe68d",
+        "a0aa5479-64d4-4d8a-b9f6-32b9280a5dc0",
+        "3574dc6c-641f-4d00-8fbd-2758eb3fba43",
+        "e3cd62d7-e525-4092-a00d-2018cbe50a95"
+      ]
+    },
+    "q011": {
+      "query": "black top",
+      "items": [
+        "f54962f1-22fd-4cd5-8505-30821fec59af"
+      ]
+    },
+    "q013": {
+      "query": "black dress",
+      "items": [
+        "65ecd956-f472-4a19-87f7-386daf1552fd"
+      ]
+    },
+    "q016": {
+      "query": "silver earrings",
+      "items": [
+        "3f6e4e6b-e49f-4357-b2d5-d6f5c294d60b"
+      ]
+    },
+    "q022": {
+      "query": "beige kurti",
+      "items": [
+        "2bf00190-3101-4869-a2c4-f86012f2e378",
+        "49cb9194-f213-4f89-ba62-9b4488aea59e",
+        "258368a9-e357-40ca-8991-0f2b29a98c38",
+        "3393e00a-d822-48c5-86a5-665f1ca05c61",
+        "10d4cfc1-7fc7-4faa-9ac6-523d7e1ea87d"
+      ]
+    },
+    "q027": {
+      "query": "women's kurti",
+      "items": [
+        "2bf00190-3101-4869-a2c4-f86012f2e378",
+        "9d370732-1675-446f-9ab7-22cf99c64af8",
+        "10d4cfc1-7fc7-4faa-9ac6-523d7e1ea87d",
+        "3393e00a-d822-48c5-86a5-665f1ca05c61"
+      ]
+    },
+    "q028": {
+      "query": "women's jewellery",
+      "items": [
+        "282062da-16b2-4f20-8d3f-9ec01c4602ae",
+        "8d955116-0653-4edc-bf13-c2f2cd8c7ecb",
+        "7e13b37c-25d1-46df-9973-5361dfea8df8",
+        "b7692c29-b8c7-4e03-b4c4-0da0ae6a358b",
+        "efa934d6-614c-43ad-9f35-80d7cd9eba28",
+        "7af21004-49c4-4d75-a0ce-a79718ec3d14",
+        "0a2d6c24-1f1f-4b23-8769-ea49aca42710",
+        "51bc2121-9f0c-4749-82ec-43d99c19ec23",
+        "95af4d8e-d928-4739-8540-0feb9de0d883",
+        "a60b0c14-f631-4223-bf75-6fdaaec835e8"
+      ]
+    },
+    "q031": {
+      "query": "men's shirt",
+      "items": [
+        "241b33fb-8c12-42fa-a5f7-88e174ad702f",
+        "d3fc0a91-2409-49b2-b71b-93ac780c098f",
+        "c6dfafc6-6723-4ee0-a87f-23425ebdc2a6",
+        "6d9ffa43-a558-4125-88a3-e51d0b2f8875",
+        "b06d4b72-d04e-4052-8efd-14b72671267f"
+      ]
+    },
+    "q032": {
+      "query": "men's jeans",
+      "items": [
+        "17129ffc-554d-448b-bfc1-16f298bf97b1",
+        "780f8fe5-dd85-4ca9-add1-f95a40546ed1",
+        "810285d2-0e75-470d-ab3b-4a82eaf15034",
+        "73c1bf95-5445-4ce6-8c73-924a93e82d2e",
+        "72f4e2b3-8f7d-4fc3-8a75-e382f21dc550",
+        "75cbd8d7-9ee8-4d9e-b7cc-83249e80da6d"
+      ]
+    },
+    "q040": {
+      "query": "ethnic kurti",
+      "items": [
+        "2bf00190-3101-4869-a2c4-f86012f2e378"
+      ]
+    },
+    "q047": {
+      "query": "top under ₹1000",
+      "items": [
+        "cac5b33f-b975-429f-84cf-8af5d4991665"
+      ]
+    },
+    "q057": {
+      "query": "festive kurti",
+      "items": [
+        "258368a9-e357-40ca-8991-0f2b29a98c38",
+        "49cb9194-f213-4f89-ba62-9b4488aea59e",
+        "2bf00190-3101-4869-a2c4-f86012f2e378",
+        "10d4cfc1-7fc7-4faa-9ac6-523d7e1ea87d",
+        "5055f340-59f5-43b8-9795-d18026b050f3"
+      ]
+    },
+    "q058": {
+      "query": "party wear dress",
+      "items": [
+        "4da8613f-a1c6-4377-b011-5e626e9d7750",
+        "963aa916-2fdb-4ddd-bdde-04ab4bf7b55d",
+        "035ed5ef-9ebc-4b2c-9776-7d8279ca18e4",
+        "e64fd956-8cd4-4880-815d-a45aa21c97d8",
+        "06de276d-978d-40cc-85e0-db825728db1f"
+      ]
+    },
+    "q067": {
+      "query": "BYUTIFY kurti",
+      "items": [
+        "10d4cfc1-7fc7-4faa-9ac6-523d7e1ea87d",
+        "9d370732-1675-446f-9ab7-22cf99c64af8",
+        "258368a9-e357-40ca-8991-0f2b29a98c38",
+        "fdcb09ba-773b-42d1-ad7b-33f7ecc95438"
+      ]
+    },
+    "q072": {
+      "query": "toolboxraw jewellery",
+      "items": [
+        "2493263b-d38a-41cf-81c8-de60c410c47b",
+        "bf23c325-bd9d-4627-9c8b-3209df909dc4",
+        "efa934d6-614c-43ad-9f35-80d7cd9eba28",
+        "3004c026-fe6e-4e64-a729-2bca0ac1c615",
+        "b7692c29-b8c7-4e03-b4c4-0da0ae6a358b",
+        "7e13b37c-25d1-46df-9973-5361dfea8df8",
+        "8d955116-0653-4edc-bf13-c2f2cd8c7ecb",
+        "282062da-16b2-4f20-8d3f-9ec01c4602ae",
+        "0a2d6c24-1f1f-4b23-8769-ea49aca42710"
+      ]
+    },
+    "q095": {
+      "query": "silk saree",
+      "items": [
+        "cbebfb2c-09f4-4be7-8b31-89bba7e2bac9",
+        "420ac357-c722-4f69-853f-e0916a036f85",
+        "6aa806d2-aa88-43fb-9594-c3e3fc56d6ec"
+      ]
+    }
+  }
+}

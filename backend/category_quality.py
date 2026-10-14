@@ -579,13 +579,20 @@ def rebuild_brand_categories(supabase: Any) -> int:
 
 def is_stable_storage_url(url: Any, base_url: str) -> bool:
     value = str(url or "")
-    return value.startswith(f"{base_url.rstrip('/')}/storage/v1/object/public/")
+    if value.startswith(f"{base_url.rstrip('/')}/storage/v1/object/public/"):
+        return True
+    r2_base_url = os.environ.get("R2_PUBLIC_BASE_URL", "").rstrip("/")
+    return bool(r2_base_url) and value.startswith(f"{r2_base_url}/")
 
 
 def stable_storage_url(base_url: str, bucket: str, path: str) -> str:
     return f"{base_url.rstrip('/')}/storage/v1/object/public/{bucket}/{path}"
 
 
+# TODO(r2-migration): scraper uploads still go to Supabase Storage via this function.
+# Known gap, left out of this change on purpose -- only is_stable_storage_url (the read
+# side) was widened to recognize R2 URLs. Pointing new uploads at R2 is a separate,
+# later step.
 def upload_stable_image(url: str, *, product: dict[str, Any], base_url: str, key: str) -> str:
     import httpx
     from io import BytesIO
@@ -617,6 +624,8 @@ def upload_stable_image(url: str, *, product: dict[str, Any], base_url: str, key
 INSTAGRAM_DEFAULT_AVATAR_SHA256 = "93eecdc2044f27b2c5a2c6836d2e2b020dcd6865cde7c4278a5abd52b27b336a"
 
 
+# TODO(r2-migration): same known gap as upload_stable_image -- brand-image uploads
+# still go to Supabase Storage, not R2.
 def upload_stable_brand_image(url: str, *, brand_id: str, base_url: str, key: str) -> str:
     import hashlib
     import httpx

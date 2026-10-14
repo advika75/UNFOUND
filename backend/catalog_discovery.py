@@ -80,7 +80,14 @@ def inventory_report() -> dict[str, Any]:
             elif len(rows) >= INVENTORY_TARGETS["minimum_products"] and brand_count >= INVENTORY_TARGETS["minimum_brands"]: status = "ADEQUATE"
             else: status = "NEED_MORE"
             lines.append({"family": FAMILY_LABELS[family], "type": product_type, "products": len(rows), "brands": brand_count, "status": status})
-    stable = sum("/storage/v1/object/public/product-images/" in str(row.get("image_url") or "") for row in products)
+    r2_base_url = os.environ.get("R2_PUBLIC_BASE_URL", "").rstrip("/")
+    stable = sum(
+        bool(
+            "/storage/v1/object/public/product-images/" in str(row.get("image_url") or "")
+            or (r2_base_url and str(row.get("image_url") or "").startswith(f"{r2_base_url}/product-images/"))
+        )
+        for row in products
+    )
     category_for_family = {"Tops":"tops", "Ethnic Upperwear":"kurtas", "Sets":"ethnic", "Jewellery":"jewellery", "Bags":"bags", "Outerwear":"streetwear"}
     recommendations = [{"product_type":row["type"], "acquisition_category":category_for_family.get(row["family"], row["family"].lower()), "command":f"python -m backend.catalog_discovery discover-brands --category {category_for_family.get(row['family'], row['family'].lower())} --limit 20 --dry-run"} for row in lines if row["status"] == "NEED_MORE"]
     return {"total_brands": len(brands), "total_products": len(products), "stable_images": stable, "stable_image_coverage_percent": round(100 * stable / len(products), 1) if products else 0, "targets": INVENTORY_TARGETS, "inventory": lines, "discovery_recommendations": recommendations}

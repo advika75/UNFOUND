@@ -1075,17 +1075,29 @@ def run_match_products_rpc(
             # as type_match(product_search_text(row), type), at most 100 rows, no embedding column --
             # instead of downloading the whole products table on every search.
             existing_ids = sorted({str(row["id"]) for row in products if row.get("id")})
-            response = supabase.rpc(
-                "exact_type_products",
-                {"type_pattern": type_pattern, "exclude_ids": existing_ids, "row_limit": 100},
-            ).execute()
-            for row in response.data or []:
-                formatted = format_product(row)
-                # Flags this row for apply_final_ranking's zero-support floor: an
-                # exact_type_products row has no retrieval-side relevance signal of
-                # its own (no embedding score), unlike a real match_products candidate.
-                formatted["_from_augmentation"] = True
-                products.append(formatted)
+            if AUGMENTATION_SCORING == "similarity":
+                response = supabase.rpc(
+                    "exact_type_products_scored",
+                    {"query_embedding": query_embedding, "type_pattern": type_pattern, "exclude_ids": existing_ids, "row_limit": 100},
+                ).execute()
+                for row in response.data or []:
+                    formatted = format_product(row["product"])
+                    if row.get("similarity") is not None:
+                        formatted["similarity"] = formatted["similarity_score"] = float(row["similarity"])
+                    formatted["_from_augmentation"] = True
+                    products.append(formatted)
+            else:
+                response = supabase.rpc(
+                    "exact_type_products",
+                    {"type_pattern": type_pattern, "exclude_ids": existing_ids, "row_limit": 100},
+                ).execute()
+                for row in response.data or []:
+                    formatted = format_product(row)
+                    # Flags this row for apply_final_ranking's zero-support floor: an
+                    # exact_type_products row has no retrieval-side relevance signal of
+                    # its own (no embedding score), unlike a real match_products candidate.
+                    formatted["_from_augmentation"] = True
+                    products.append(formatted)
         except Exception:
             logging.exception("Exact-type catalog augmentation failed; continuing with vector candidates.")
     ranking_category_id = category_id
@@ -1236,14 +1248,24 @@ def _usable_image(product: dict[str, Any]) -> bool:
 
 
 def _stable_product_image(product: dict[str, Any]) -> bool:
+    url = str(product.get("image_url") or "")
     base_url = str(os.getenv("SUPABASE_URL") or "").rstrip("/")
-    return _usable_image(product) and bool(base_url) and str(product.get("image_url") or "").startswith(f"{base_url}/storage/v1/object/public/product-images/")
+    r2_base_url = str(os.getenv("R2_PUBLIC_BASE_URL") or "").rstrip("/")
+    from_supabase = bool(base_url) and url.startswith(f"{base_url}/storage/v1/object/public/product-images/")
+    from_r2 = bool(r2_base_url) and url.startswith(f"{r2_base_url}/product-images/")
+    return _usable_image(product) and (from_supabase or from_r2)
 
 
 def build_catalog_scale_report(brands: list[dict[str, Any]], products: list[dict[str, Any]]) -> dict[str, Any]:
     """Return operational scale/readiness metrics without mutating the catalog."""
     active = [row for row in products if row.get("catalog_status") != "NON_PRODUCT"]
-    stable = [row for row in active if _usable_image(row) and "/storage/v1/object/public/" in str(row.get("image_url") or "")]
+    r2_base_url = str(os.getenv("R2_PUBLIC_BASE_URL") or "").rstrip("/")
+    stable = [
+        row for row in active
+        if _usable_image(row)
+        and ("/storage/v1/object/public/" in str(row.get("image_url") or "")
+             or (r2_base_url and str(row.get("image_url") or "").startswith(f"{r2_base_url}/")))
+    ]
     valid_embeddings = []
     typed = []
     families: dict[str, int] = {}

@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from backend.discovery_engine import (
     MAX_PRODUCTS_PER_CATEGORY_PER_RAIL, catalog_context, discovery_sections, diversify, gem_label,
-    personalized_score, product_gem_score, score_products,
+    is_stable_product, personalized_score, product_gem_score, score_products,
 )
 
 BASE = "https://project.supabase.co"
@@ -29,6 +29,18 @@ def test_missing_optional_data_does_not_destroy_score_but_broken_assets_are_inel
     scored=score_products([good,broken],supabase_url=BASE)
     assert scored[0]["gem_score"] > 0 and scored[0]["discovery_eligible"]
     assert not scored[1]["discovery_eligible"]
+
+
+def test_is_stable_product_accepts_r2_url_when_r2_base_url_is_configured(monkeypatch):
+    monkeypatch.setenv("R2_PUBLIC_BASE_URL", "https://images.unfound.example")
+    row = product("R2 top", image_url="https://images.unfound.example/product-images/small/a.jpg")
+    assert is_stable_product(row, BASE)
+
+
+def test_is_stable_product_rejects_r2_shaped_url_without_r2_base_url_configured(monkeypatch):
+    monkeypatch.delenv("R2_PUBLIC_BASE_URL", raising=False)
+    row = product("R2 top", image_url="https://images.unfound.example/product-images/small/a.jpg")
+    assert not is_stable_product(row, BASE)
 
 
 def test_trending_brands_is_a_real_ranking_not_an_alias_of_emerging():

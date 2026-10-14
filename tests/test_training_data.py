@@ -8,7 +8,7 @@ from backend.ml.experiments import (
 )
 from backend.training_data import (
     grouped_split, hard_negative_kind, readiness_report, relevance_metrics,
-    trusted_training_record, write_records,
+    stable_image, trusted_training_record, write_records,
 )
 from backend.search_failure_log import append_search_evaluation
 
@@ -27,6 +27,14 @@ def test_trusted_label_export_and_low_confidence_exclusion(tmp_path):
     assert trusted_training_record(product(classifier_confidence=.79), supabase_url=BASE_URL) is None
     assert trusted_training_record(product(image_url="https://instagram.example/x.jpg"), supabase_url=BASE_URL) is None
     output = tmp_path / "labels.jsonl"; write_records([record], output, "jsonl"); assert '"product_type": "Crop Top"' in output.read_text()
+
+
+def test_stable_image_accepts_r2_url_when_r2_base_url_is_configured(monkeypatch):
+    monkeypatch.setenv("R2_PUBLIC_BASE_URL", "https://images.unfound.example")
+    row = product(image_url="https://images.unfound.example/product-images/b1/p1-1.jpg")
+    assert stable_image(row, BASE_URL)
+    monkeypatch.delenv("R2_PUBLIC_BASE_URL", raising=False)
+    assert not stable_image(row, BASE_URL)
 
 
 def test_deterministic_brand_split_has_no_brand_leakage():
