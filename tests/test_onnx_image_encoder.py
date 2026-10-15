@@ -13,6 +13,36 @@ ROOT = Path(__file__).resolve().parents[1]
 REAL_IMAGE_ARTIFACT = ROOT / "backend" / "ml" / "artifacts" / "clip-vit-b-32-image"
 REAL_TEXT_ARTIFACT = ROOT / "backend" / "ml" / "artifacts" / "clip-vit-b-32-text"
 
+# Guard against site-packages (e.g. anaconda ultralytics) shadowing the local `tests` directory
+_TESTS_DIR = str(Path(__file__).resolve().parent)
+if "tests" in sys.modules:
+    _tests_mod = sys.modules["tests"]
+    if hasattr(_tests_mod, "__path__") and _TESTS_DIR not in _tests_mod.__path__:
+        _tests_mod.__path__.insert(0, _TESTS_DIR)
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
+
+
+def _get_text_encoder_test_helpers():
+    try:
+        from tests.test_onnx_text_encoder import build_tiny_artifact, run_snippet
+        return build_tiny_artifact, run_snippet
+    except (ImportError, ModuleNotFoundError, AttributeError):
+        try:
+            from test_onnx_text_encoder import build_tiny_artifact, run_snippet
+            return build_tiny_artifact, run_snippet
+        except (ImportError, ModuleNotFoundError, AttributeError):
+            import importlib.util
+            spec = importlib.util.spec_from_file_location(
+                "test_onnx_text_encoder", Path(__file__).resolve().parent / "test_onnx_text_encoder.py"
+            )
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            return mod.build_tiny_artifact, mod.run_snippet
+
+
+build_tiny_text_artifact, run_snippet = _get_text_encoder_test_helpers()
+
 PREPROCESSOR_CONFIG = {
     "crop_size": 224, "do_center_crop": True, "do_normalize": True, "do_resize": True,
     "image_mean": [0.48145466, 0.4578275, 0.40821073], "image_std": [0.26862954, 0.26130258, 0.27577711],
@@ -63,7 +93,10 @@ def test_preprocessing_is_bit_identical_to_clip_image_processor_pil(tmp_path):
     np = pytest.importorskip("numpy")
     pytest.importorskip("transformers")
     from huggingface_hub import try_to_load_from_cache  # noqa: F401 -- reference processor needs no network
-    from transformers.models.clip.image_processing_pil_clip import CLIPImageProcessorPil
+    try:
+        from transformers.models.clip.image_processing_pil_clip import CLIPImageProcessorPil
+    except ImportError:
+        from transformers import CLIPImageProcessor as CLIPImageProcessorPil
 
     from backend.ml.onnx_image_encoder import ClipImagePreprocessor
 
@@ -85,8 +118,6 @@ def test_preprocess_output_contract(tmp_path):
 
 
 def test_encoder_returns_a_unit_norm_float32_vector(tmp_path):
-    from tests.test_onnx_text_encoder import run_snippet
-
     report = run_snippet(
         """
         import json, sys, numpy as np
@@ -184,9 +215,7 @@ def run_image_startup(text_dir: Path, image_dir: Path, eager: str) -> dict:
 
 
 def _tiny_text_artifact(tmp_path):
-    from tests.test_onnx_text_encoder import build_tiny_artifact
-
-    return build_tiny_artifact(tmp_path / "text")
+    return build_tiny_text_artifact(tmp_path / "text")
 
 
 @pytest.mark.parametrize("eager", ["0", "1"])

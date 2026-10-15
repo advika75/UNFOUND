@@ -1,8 +1,16 @@
 import re
+import sys
 import time
+import types
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
+
+try:
+    import boto3
+except ImportError:
+    boto3 = types.ModuleType("boto3")
+    sys.modules["boto3"] = boto3
 
 import pytest
 from fastapi.testclient import TestClient

@@ -9,6 +9,7 @@ python-dotenv==1.2.2
 httpx==0.28.1
 requests==2.34.2
 selenium==4.40.0
+boto3==1.43.103
 
 # Supabase and PostgreSQL maintenance utilities
 supabase==2.31.0
