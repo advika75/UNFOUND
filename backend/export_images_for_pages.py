@@ -1,33 +1,42 @@
-"""One-time copy of product/brand images from Supabase Storage to Cloudflare R2.
+"""One-time local export of product/brand images from Supabase Storage, for
+static hosting on Cloudflare Pages (no boto3, no R2 -- Pages needs no card).
 
 Does NOT touch the database and does NOT delete anything from Supabase --
-this only copies bytes to R2 and records a mapping of old -> new URL. The
-actual products/brands.*_url rewrite is a separate, later SQL step (not run
-by this script), so the old Supabase URLs stay valid for as long as you want.
+this only downloads bytes into a local, gitignored folder and records a
+mapping of old -> new URL. The actual products/brands.*_url rewrite is a
+separate, later SQL step (not run by this script), so the old Supabase URLs
+stay valid for as long as you want.
 
 Required env vars (read via load_dotenv from backend/.env; names only, never
 printed by this script):
-  SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY   -- to list bucket contents
-  R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME,
-  R2_PUBLIC_BASE_URL                         -- to write to R2
+  SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY   -- to list and download from Storage
+  IMAGE_PUBLIC_BASE_URL                      -- the Cloudflare Pages URL the
+                                                 exported folder will be deployed
+                                                 to (e.g. https://unfound-images.pages.dev),
+                                                 no trailing slash
 
 Usage:
-  python -m backend.migrate_images_to_r2 --dry-run
-  python -m backend.migrate_images_to_r2 [--bucket product-images|brand-images|both]
+  python -m backend.export_images_for_pages --dry-run
+  python -m backend.export_images_for_pages [--bucket product-images|brand-images|both]
 
---dry-run makes zero calls to R2 and zero calls to download file content from
-Supabase -- it only lists object metadata (same read-only call the earlier
-storage census used) and reports what a real run would do.
+--dry-run makes zero calls to download file content -- it only lists object
+metadata (same read-only call the earlier storage census used) and reports
+what a real run would do.
+
+Output layout: data/image_export/{bucket}/{path}, mirroring the Supabase
+bucket/path structure exactly, so the URL mapping is a pure prefix swap:
+  {SUPABASE_URL}/storage/v1/object/public/{bucket}/{path}
+  -> {IMAGE_PUBLIC_BASE_URL}/{bucket}/{path}
 
 Safety:
   - MAX_TOTAL_DOWNLOAD_BYTES hard-caps how much this process will download
     from Supabase in one run; it aborts with a clear message before crossing
     it, never mid-download.
   - DOWNLOAD_DELAY_SECONDS is a small pause between files, to stay gentle on
-    Supabase's own egress/rate limits during the copy.
-  - Resumable: data/r2_migration_map.json is read on startup, and any
+    Supabase's own egress/rate limits during the export.
+  - Resumable: data/image_export_map.json is read on startup, and any
     (bucket, path) already present with status "verified" is skipped
-    entirely -- no re-download, no re-upload, no re-verification call.
+    entirely -- no re-download, no re-verification call.
   - The mapping file is rewritten after every single file, not batched at
     the end, so a crash mid-run loses at most the one in-flight file.
 """
@@ -48,13 +57,14 @@ from dotenv import load_dotenv
 
 load_dotenv("backend/.env", override=True)
 
-MAPPING_PATH = Path("data/r2_migration_map.json")
+EXPORT_DIR = Path("data/image_export")
+MAPPING_PATH = Path("data/image_export_map.json")
 BUCKETS = ("product-images", "brand-images")
 STORAGE_LIST_PAGE_SIZE = 1000
 
 # Hard cap on bytes downloaded FROM SUPABASE in one run of this script. The
 # full catalog is ~64 MB (measured via the earlier read-only census), so 100
-# MB covers a complete copy with room to spare; this exists to protect
+# MB covers a complete export with room to spare; this exists to protect
 # Supabase egress headroom if the catalog has grown unexpectedly since.
 MAX_TOTAL_DOWNLOAD_BYTES = 100 * 1024 * 1024
 
@@ -125,22 +135,8 @@ def mapping_key(bucket: str, path: str) -> str:
     return f"{bucket}/{path}"
 
 
-def get_r2_client():
-    import boto3
-
-    account_id = _require_env("R2_ACCOUNT_ID")
-    return boto3.client(
-        "s3",
-        endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
-        aws_access_key_id=_require_env("R2_ACCESS_KEY_ID"),
-        aws_secret_access_key=_require_env("R2_SECRET_ACCESS_KEY"),
-        region_name="auto",
-    )
-
-
-def copy_one_file(
-    *, bucket: str, path: str, size: int, supabase_url: str, r2_client: Any,
-    r2_bucket: str, r2_public_base_url: str,
+def export_one_file(
+    *, bucket: str, path: str, supabase_url: str, image_public_base_url: str,
 ) -> dict[str, Any]:
     old_url = f"{supabase_url}/storage/v1/object/public/{bucket}/{path}"
     response = httpx.get(old_url, timeout=60)
@@ -148,23 +144,21 @@ def copy_one_file(
     content = response.content
 
     sha256 = hashlib.sha256(content).hexdigest()
-    md5 = hashlib.md5(content).hexdigest()  # noqa: S324 -- not for security, just matches R2/S3's ETag for a single PutObject
 
-    r2_key = f"{bucket}/{path}"
-    r2_client.put_object(Bucket=r2_bucket, Key=r2_key, Body=content, ContentType=response.headers.get("content-type", "application/octet-stream"))
+    local_path = EXPORT_DIR / bucket / path
+    local_path.parent.mkdir(parents=True, exist_ok=True)
+    local_path.write_bytes(content)
 
-    head = r2_client.head_object(Bucket=r2_bucket, Key=r2_key)
-    uploaded_size = head["ContentLength"]
-    uploaded_etag = head["ETag"].strip('"').lower()
-    verified = uploaded_size == len(content) and uploaded_etag == md5
+    written = local_path.read_bytes()
+    verified = len(written) == len(content) and hashlib.sha256(written).hexdigest() == sha256
 
-    new_url = f"{r2_public_base_url.rstrip('/')}/{r2_key}"
+    new_url = f"{image_public_base_url.rstrip('/')}/{bucket}/{path}"
     return {
         "old_url": old_url,
         "new_url": new_url,
+        "local_path": str(local_path),
         "bytes": len(content),
         "sha256": sha256,
-        "etag_md5": md5,
         "verified": verified,
         "verified_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
@@ -193,10 +187,10 @@ def run(buckets: list[str], dry_run: bool) -> int:
     print(f"Buckets: {buckets}")
     print(f"Total files in catalog: {len(all_files)} ({total_bytes_catalog:,} bytes)")
     print(f"Already verified (resumable, will be skipped): {already_done}")
-    print(f"Remaining to copy: {len(remaining)} ({remaining_bytes:,} bytes)")
+    print(f"Remaining to export: {len(remaining)} ({remaining_bytes:,} bytes)")
 
     if dry_run:
-        print("\n--dry-run: no calls made to bucket content or R2. Sample of what would be copied:")
+        print("\n--dry-run: no file content downloaded. Sample of what would be exported:")
         for bucket, item in remaining[:10]:
             print(f"  {bucket}/{item['path']}  ({item['size']:,} bytes)")
         if remaining_bytes > MAX_TOTAL_DOWNLOAD_BYTES:
@@ -204,9 +198,7 @@ def run(buckets: list[str], dry_run: bool) -> int:
                   f"({remaining_bytes:,} > {MAX_TOTAL_DOWNLOAD_BYTES:,}) and would abort partway through.")
         return 0
 
-    r2_client = get_r2_client()
-    r2_bucket = _require_env("R2_BUCKET_NAME")
-    r2_public_base_url = _require_env("R2_PUBLIC_BASE_URL")
+    image_public_base_url = _require_env("IMAGE_PUBLIC_BASE_URL")
 
     downloaded_this_run = 0
     for bucket, item in remaining:
@@ -221,18 +213,18 @@ def run(buckets: list[str], dry_run: bool) -> int:
             save_mapping(mapping)
             return 1
 
-        result = copy_one_file(
-            bucket=bucket, path=item["path"], size=item["size"], supabase_url=supabase_url,
-            r2_client=r2_client, r2_bucket=r2_bucket, r2_public_base_url=r2_public_base_url,
+        result = export_one_file(
+            bucket=bucket, path=item["path"], supabase_url=supabase_url,
+            image_public_base_url=image_public_base_url,
         )
         downloaded_this_run += result["bytes"]
         mapping[mapping_key(bucket, item["path"])] = result
         save_mapping(mapping)
 
         status = "OK" if result["verified"] else "VERIFICATION MISMATCH"
-        print(f"  [{status}] {bucket}/{item['path']} -> {result['new_url']} ({result['bytes']:,} bytes)")
+        print(f"  [{status}] {bucket}/{item['path']} -> {result['local_path']} ({result['bytes']:,} bytes)")
         if not result["verified"]:
-            print("    size/etag did not match after upload -- left in the mapping file as unverified for review.")
+            print("    hash/size did not match after writing to disk -- left in the mapping file as unverified for review.")
 
         time.sleep(DOWNLOAD_DELAY_SECONDS)
 
@@ -241,7 +233,7 @@ def run(buckets: list[str], dry_run: bool) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="python -m backend.migrate_images_to_r2")
+    parser = argparse.ArgumentParser(prog="python -m backend.export_images_for_pages")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--bucket", choices=["product-images", "brand-images", "both"], default="both")
     args = parser.parse_args(argv)

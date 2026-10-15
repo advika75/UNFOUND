@@ -80,11 +80,11 @@ def inventory_report() -> dict[str, Any]:
             elif len(rows) >= INVENTORY_TARGETS["minimum_products"] and brand_count >= INVENTORY_TARGETS["minimum_brands"]: status = "ADEQUATE"
             else: status = "NEED_MORE"
             lines.append({"family": FAMILY_LABELS[family], "type": product_type, "products": len(rows), "brands": brand_count, "status": status})
-    r2_base_url = os.environ.get("R2_PUBLIC_BASE_URL", "").rstrip("/")
+    image_base_url = (os.environ.get("IMAGE_PUBLIC_BASE_URL") or os.environ.get("R2_PUBLIC_BASE_URL") or "").rstrip("/")
     stable = sum(
         bool(
             "/storage/v1/object/public/product-images/" in str(row.get("image_url") or "")
-            or (r2_base_url and str(row.get("image_url") or "").startswith(f"{r2_base_url}/product-images/"))
+            or (image_base_url and str(row.get("image_url") or "").startswith(f"{image_base_url}/product-images/"))
         )
         for row in products
     )

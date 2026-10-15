@@ -56,10 +56,10 @@ def _text(row: dict[str, Any]) -> str:
 
 def is_stable_product(row: dict[str, Any], supabase_url: str) -> bool:
     url = str(row.get("image_url") or "")
-    r2_base_url = os.getenv("R2_PUBLIC_BASE_URL", "").rstrip("/")
+    image_base_url = (os.getenv("IMAGE_PUBLIC_BASE_URL") or os.getenv("R2_PUBLIC_BASE_URL") or "").rstrip("/")
     from_supabase = bool(supabase_url) and url.startswith(f"{supabase_url.rstrip('/')}/storage/v1/object/public/product-images/")
-    from_r2 = bool(r2_base_url) and url.startswith(f"{r2_base_url}/product-images/")
-    return (from_supabase or from_r2) and "unsplash.com" not in url and str(row.get("image_status") or "").upper() not in {"BROKEN", "MISSING", "RECOVERY_REQUIRED", "UNRECOVERABLE"}
+    from_static_export = bool(image_base_url) and url.startswith(f"{image_base_url}/product-images/")
+    return (from_supabase or from_static_export) and "unsplash.com" not in url and str(row.get("image_status") or "").upper() not in {"BROKEN", "MISSING", "RECOVERY_REQUIRED", "UNRECOVERABLE"}
 
 
 def gem_label(score: int) -> str | None:

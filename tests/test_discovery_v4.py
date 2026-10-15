@@ -60,23 +60,33 @@ def test_admin_key_configuration_and_authorization(monkeypatch):
 
 def test_stable_image_requires_approved_storage(monkeypatch):
     monkeypatch.setenv("SUPABASE_URL", "https://x.supabase.co")
+    monkeypatch.delenv("IMAGE_PUBLIC_BASE_URL", raising=False)
     monkeypatch.delenv("R2_PUBLIC_BASE_URL", raising=False)
     assert _stable_product_image({"image_url":"https://x.supabase.co/storage/v1/object/public/product-images/a.jpg"})
     assert not _stable_product_image({"image_url":"https://images.unsplash.com/a.jpg"})
     assert not _stable_product_image({"image_url":"https://cdninstagram.com/a.jpg"})
 
 
-def test_stable_image_also_accepts_r2_url_when_configured(monkeypatch):
+def test_stable_image_also_accepts_static_export_url_when_configured(monkeypatch):
     monkeypatch.setenv("SUPABASE_URL", "https://x.supabase.co")
+    monkeypatch.delenv("R2_PUBLIC_BASE_URL", raising=False)
+    monkeypatch.setenv("IMAGE_PUBLIC_BASE_URL", "https://unfound-images.pages.dev")
+    assert _stable_product_image({"image_url":"https://unfound-images.pages.dev/product-images/a.jpg"})
+    assert not _stable_product_image({"image_url":"https://unfound-images.pages.dev/product-images/a.jpg", "image_status":"BROKEN"})
+
+
+def test_stable_image_falls_back_to_r2_public_base_url_if_set(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", "https://x.supabase.co")
+    monkeypatch.delenv("IMAGE_PUBLIC_BASE_URL", raising=False)
     monkeypatch.setenv("R2_PUBLIC_BASE_URL", "https://images.unfound.example")
     assert _stable_product_image({"image_url":"https://images.unfound.example/product-images/a.jpg"})
-    assert not _stable_product_image({"image_url":"https://images.unfound.example/product-images/a.jpg", "image_status":"BROKEN"})
 
 
-def test_scale_report_counts_r2_images_as_stable_when_configured(monkeypatch):
-    monkeypatch.setenv("R2_PUBLIC_BASE_URL", "https://images.unfound.example")
+def test_scale_report_counts_static_export_images_as_stable_when_configured(monkeypatch):
+    monkeypatch.delenv("R2_PUBLIC_BASE_URL", raising=False)
+    monkeypatch.setenv("IMAGE_PUBLIC_BASE_URL", "https://unfound-images.pages.dev")
     row = product(
-        "Black crop top", "https://images.unfound.example/product-images/top.jpg",
+        "Black crop top", "https://unfound-images.pages.dev/product-images/top.jpg",
         classifier_confidence=.9, category="women-tops", price=1999,
         embedding=[0.01] * 512,
     )

@@ -29,7 +29,8 @@ data/*.csv
 data/ingestion_audit/
 data/batch_reports/
 data/images/
-data/r2_migration_map.json
+data/image_export/
+data/image_export_map.json
 backend/ml/artifacts/
 experiments/artifacts/
 *.pkl

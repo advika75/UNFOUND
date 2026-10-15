@@ -41,10 +41,10 @@ def product_text(row: dict[str, Any]) -> str:
 
 def stable_image(row: dict[str, Any], supabase_url: str) -> bool:
     url = str(row.get("image_url") or "")
-    r2_base_url = os.environ.get("R2_PUBLIC_BASE_URL", "").rstrip("/")
+    image_base_url = (os.environ.get("IMAGE_PUBLIC_BASE_URL") or os.environ.get("R2_PUBLIC_BASE_URL") or "").rstrip("/")
     in_product_images_bucket = bool(
         "/storage/v1/object/public/product-images/" in url
-        or (r2_base_url and url.startswith(f"{r2_base_url}/product-images/"))
+        or (image_base_url and url.startswith(f"{image_base_url}/product-images/"))
     )
     return (
         is_stable_storage_url(url, supabase_url)

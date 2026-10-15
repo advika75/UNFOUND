@@ -1250,21 +1250,21 @@ def _usable_image(product: dict[str, Any]) -> bool:
 def _stable_product_image(product: dict[str, Any]) -> bool:
     url = str(product.get("image_url") or "")
     base_url = str(os.getenv("SUPABASE_URL") or "").rstrip("/")
-    r2_base_url = str(os.getenv("R2_PUBLIC_BASE_URL") or "").rstrip("/")
+    image_base_url = str(os.getenv("IMAGE_PUBLIC_BASE_URL") or os.getenv("R2_PUBLIC_BASE_URL") or "").rstrip("/")
     from_supabase = bool(base_url) and url.startswith(f"{base_url}/storage/v1/object/public/product-images/")
-    from_r2 = bool(r2_base_url) and url.startswith(f"{r2_base_url}/product-images/")
-    return _usable_image(product) and (from_supabase or from_r2)
+    from_static_export = bool(image_base_url) and url.startswith(f"{image_base_url}/product-images/")
+    return _usable_image(product) and (from_supabase or from_static_export)
 
 
 def build_catalog_scale_report(brands: list[dict[str, Any]], products: list[dict[str, Any]]) -> dict[str, Any]:
     """Return operational scale/readiness metrics without mutating the catalog."""
     active = [row for row in products if row.get("catalog_status") != "NON_PRODUCT"]
-    r2_base_url = str(os.getenv("R2_PUBLIC_BASE_URL") or "").rstrip("/")
+    image_base_url = str(os.getenv("IMAGE_PUBLIC_BASE_URL") or os.getenv("R2_PUBLIC_BASE_URL") or "").rstrip("/")
     stable = [
         row for row in active
         if _usable_image(row)
         and ("/storage/v1/object/public/" in str(row.get("image_url") or "")
-             or (r2_base_url and str(row.get("image_url") or "").startswith(f"{r2_base_url}/")))
+             or (image_base_url and str(row.get("image_url") or "").startswith(f"{image_base_url}/")))
     ]
     valid_embeddings = []
     typed = []

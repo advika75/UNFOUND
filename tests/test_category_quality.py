@@ -40,13 +40,20 @@ def product(name: str, description: str = "", **extra):
     return {"id": name, "product_name": name, "item_name": name, "description": description, **extra}
 
 
-def test_is_stable_storage_url_accepts_both_supabase_and_r2(monkeypatch) -> None:
+def test_is_stable_storage_url_accepts_both_supabase_and_static_export(monkeypatch) -> None:
+    monkeypatch.delenv("IMAGE_PUBLIC_BASE_URL", raising=False)
     monkeypatch.delenv("R2_PUBLIC_BASE_URL", raising=False)
     assert is_stable_storage_url("https://x.supabase.co/storage/v1/object/public/product-images/a.jpg", "https://x.supabase.co")
-    assert not is_stable_storage_url("https://images.unfound.example/product-images/a.jpg", "https://x.supabase.co")
+    assert not is_stable_storage_url("https://unfound-images.pages.dev/product-images/a.jpg", "https://x.supabase.co")
+    monkeypatch.setenv("IMAGE_PUBLIC_BASE_URL", "https://unfound-images.pages.dev")
+    assert is_stable_storage_url("https://unfound-images.pages.dev/product-images/a.jpg", "https://x.supabase.co")
+    assert not is_stable_storage_url("https://images.unsplash.com/a.jpg", "https://x.supabase.co")
+
+
+def test_is_stable_storage_url_falls_back_to_r2_public_base_url_if_set(monkeypatch) -> None:
+    monkeypatch.delenv("IMAGE_PUBLIC_BASE_URL", raising=False)
     monkeypatch.setenv("R2_PUBLIC_BASE_URL", "https://images.unfound.example")
     assert is_stable_storage_url("https://images.unfound.example/product-images/a.jpg", "https://x.supabase.co")
-    assert not is_stable_storage_url("https://images.unsplash.com/a.jpg", "https://x.supabase.co")
 
 
 def test_real_product_examples_resolve_without_random_fallbacks() -> None:

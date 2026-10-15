@@ -29,12 +29,20 @@ def test_trusted_label_export_and_low_confidence_exclusion(tmp_path):
     output = tmp_path / "labels.jsonl"; write_records([record], output, "jsonl"); assert '"product_type": "Crop Top"' in output.read_text()
 
 
-def test_stable_image_accepts_r2_url_when_r2_base_url_is_configured(monkeypatch):
+def test_stable_image_accepts_static_export_url_when_image_base_url_is_configured(monkeypatch):
+    monkeypatch.delenv("R2_PUBLIC_BASE_URL", raising=False)
+    monkeypatch.setenv("IMAGE_PUBLIC_BASE_URL", "https://unfound-images.pages.dev")
+    row = product(image_url="https://unfound-images.pages.dev/product-images/b1/p1-1.jpg")
+    assert stable_image(row, BASE_URL)
+    monkeypatch.delenv("IMAGE_PUBLIC_BASE_URL", raising=False)
+    assert not stable_image(row, BASE_URL)
+
+
+def test_stable_image_falls_back_to_r2_public_base_url_if_set(monkeypatch):
+    monkeypatch.delenv("IMAGE_PUBLIC_BASE_URL", raising=False)
     monkeypatch.setenv("R2_PUBLIC_BASE_URL", "https://images.unfound.example")
     row = product(image_url="https://images.unfound.example/product-images/b1/p1-1.jpg")
     assert stable_image(row, BASE_URL)
-    monkeypatch.delenv("R2_PUBLIC_BASE_URL", raising=False)
-    assert not stable_image(row, BASE_URL)
 
 
 def test_deterministic_brand_split_has_no_brand_leakage():

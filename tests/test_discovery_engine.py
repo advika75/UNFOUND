@@ -31,15 +31,24 @@ def test_missing_optional_data_does_not_destroy_score_but_broken_assets_are_inel
     assert not scored[1]["discovery_eligible"]
 
 
-def test_is_stable_product_accepts_r2_url_when_r2_base_url_is_configured(monkeypatch):
+def test_is_stable_product_accepts_static_export_url_when_image_base_url_is_configured(monkeypatch):
+    monkeypatch.delenv("R2_PUBLIC_BASE_URL", raising=False)
+    monkeypatch.setenv("IMAGE_PUBLIC_BASE_URL", "https://unfound-images.pages.dev")
+    row = product("Exported top", image_url="https://unfound-images.pages.dev/product-images/small/a.jpg")
+    assert is_stable_product(row, BASE)
+
+
+def test_is_stable_product_falls_back_to_r2_public_base_url_if_set(monkeypatch):
+    monkeypatch.delenv("IMAGE_PUBLIC_BASE_URL", raising=False)
     monkeypatch.setenv("R2_PUBLIC_BASE_URL", "https://images.unfound.example")
     row = product("R2 top", image_url="https://images.unfound.example/product-images/small/a.jpg")
     assert is_stable_product(row, BASE)
 
 
-def test_is_stable_product_rejects_r2_shaped_url_without_r2_base_url_configured(monkeypatch):
+def test_is_stable_product_rejects_static_export_shaped_url_without_any_base_url_configured(monkeypatch):
+    monkeypatch.delenv("IMAGE_PUBLIC_BASE_URL", raising=False)
     monkeypatch.delenv("R2_PUBLIC_BASE_URL", raising=False)
-    row = product("R2 top", image_url="https://images.unfound.example/product-images/small/a.jpg")
+    row = product("Exported top", image_url="https://unfound-images.pages.dev/product-images/small/a.jpg")
     assert not is_stable_product(row, BASE)
 
 
