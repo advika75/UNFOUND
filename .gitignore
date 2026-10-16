@@ -20,6 +20,9 @@ backend/.venv/
 node_modules/
 Niche_brand/dist/
 data/*.jsonl
+data/scrape_seeds.txt
+data/scrape_candidates.json
+data/scrape_run_*.json
 data/*.csv
 !data/curated_brands.csv
 !data/curated_brands_pilot.csv
