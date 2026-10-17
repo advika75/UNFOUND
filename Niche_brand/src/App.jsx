@@ -536,7 +536,15 @@ function Nav({ page, go, savedCount, user, onSignInClick, onSignOut }) {
 }
 
 function BrandMarquee() {
-  return <div className="brand-marquee" aria-label="Independent labels and new finds"><span>✦ INDEPENDENT LABELS　✦ NEW FINDS　✦ HUMAN-CURATED　✦ INDEPENDENT LABELS　✦ NEW FINDS　✦ HUMAN-CURATED　✦</span></div>;
+  const message = "INDEPENDENT LABELS ✦ NEW FINDS ✦ HUMAN-CURATED ✦";
+  return (
+    <div className="brand-marquee" aria-label={message}>
+      <div className="brand-marquee-track">
+        <span>{message}</span>
+        <span aria-hidden="true">{message}</span>
+      </div>
+    </div>
+  );
 }
 
 function Section({ kicker, title, note, children, action }) {
@@ -2346,7 +2354,7 @@ export default function App() {
         onSignInClick={() => openAuthModal()}
         onSignOut={auth.onSignOut}
       />
-      {page !== "discover" && <BrandMarquee />}
+      <BrandMarquee />
       <div className="page-transition" key={page}>
         {content}
       </div>
