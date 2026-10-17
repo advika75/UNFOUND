@@ -1,0 +1,23 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,600,20,1;0,9..144,700,20,1;1,9..144,600,20,1&family=Oswald:wght@500;600;700&display=swap');
+:root {
+  --purple: #321274;
+  --pink: #f2b4d7;
+  --orange: #f06440;
+  --yellow: #ffd867;
+  --cream: #fff6df;
+  --navy: #21113f;
+  --sage: #dce7e1;
+  --sky: #80d3f5;
+  --ink: var(--navy);
+  --muted: #514765;
+  --paper: var(--cream);
+  --white: #fff;
+  --lav: #d9c9f0;
+  --blush: var(--pink);
+  --neutral: #e7e4dc;
+  --line: rgba(33,17,63,.78);
+  --display: 'Oswald', Impact, sans-serif;
+  --serif: 'Fraunces', Georgia, serif;
+  --body: 'DM Sans', Arial, sans-serif;
+  --mono: 'DM Mono', monospace;
+}

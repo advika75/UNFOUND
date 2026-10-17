@@ -725,24 +725,21 @@ function HeroSearch({ go, setSeedQuery }) {
   return (
     <section className="unfound-hero">
       <div className="hero-editorial">
-        <p className="kicker">AI-POWERED DISCOVERY · ISSUE 001</p>
+        <p className="kicker">✦ HUMAN-CURATED FROM INDEPENDENT LABELS</p>
         <h1>
-          Find what you
-          <br />
-          <em>weren’t</em> looking for.
+          Dress like your <em>algorithm</em> gets you.
         </h1>
         <p>
-          Discover independent brands, hidden gems and pieces that match your
-          style.
+          One endless feed of independent labels, hard-to-find pieces, and the designers shaping what’s next.
         </p>
-        <form onSubmit={submit}>
+        <form className="hero-search-form" onSubmit={submit}>
           <Icon name="search" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search for anything..."
           />
-          <button>Explore</button>
+          <button>Start exploring <span aria-hidden="true">→</span></button>
         </form>
         <button className="image-search" onClick={() => file.current?.click()}>
           <Icon name="camera" /> Search with an image
@@ -764,12 +761,9 @@ function HeroSearch({ go, setSeedQuery }) {
         <div className="paper-image one" />
         <div className="paper-image two" />
         <span className="tape" />
-        <p>
-          Things worth
-          <br />
-          stumbling into →
-        </p>
-        <i>✦</i>
+        <span className="hero-sticker">NOT ON<br />THE HIGH<br />STREET</span>
+        <div className="hero-brand-card"><small>SPOTTED IN THE FEED</small><strong>Independent labels</strong><span>Worth a closer look →</span></div>
+        <span className="independent-sticker">100%<br />INDEPENDENT</span>
       </div>
     </section>
   );
@@ -2337,6 +2331,7 @@ export default function App() {
   ]);
   return (
     <main>
+      <div className="fresh-banner">Fresh from the feed <span>Independent labels and pieces, found for you</span> <button onClick={() => go("brands")}>Explore brands →</button></div>
       <Nav
         page={page}
         go={go}
