@@ -46,6 +46,15 @@ export default function AuthModal({ open, onClose, onSignIn, onSignUp }) {
 
   useEffect(() => {
     if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     const onKeyDown = (event) => {
       if (event.key === "Escape") onClose();
     };

@@ -2334,7 +2334,7 @@ export default function App() {
     seedQuery,
   ]);
   return (
-    <main>
+    <main className={page === "discover" ? "home-page" : "inner-page"}>
       <div className="fresh-banner">Fresh from the feed <span>Independent labels and pieces, found for you</span> <button onClick={() => go("brands")}>Explore brands →</button></div>
       <Nav
         page={page}
