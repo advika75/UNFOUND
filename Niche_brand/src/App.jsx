@@ -922,13 +922,15 @@ function CategoriesPage({ go }) {
   return (
     <div className="page-shell">
       <header className="page-intro">
-        <p className="kicker">THE UNFOUND INDEX</p>
-        <h1>Everything, loosely organised.</h1>
+        <div>
+          <p className="kicker">01 / THE UNFOUND INDEX</p>
+          <h1>Everything, loosely <em>organised.</em></h1>
+        </div>
         <p>Start specific or follow a category somewhere unexpected.</p>
       </header>
       <div className="category-directory">
         {CATEGORY_TREE.map((cat, i) => (
-          <section key={cat.name} className={cat.tone}>
+          <section key={cat.name} className={`category-tile category-tile-${i % 3}`}>
             <small>0{i + 1}</small>
             <h2>{cat.name}</h2>
             <div>
