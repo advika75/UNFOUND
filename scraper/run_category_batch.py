@@ -478,7 +478,7 @@ def scan_target(
 
 
 def seed_targets() -> list[Target]:
-    targets = [Target("hashtag", tag, group) for tag, group in HASHTAGS]
+    targets: list[Target] = []
     for group, handles in SEEDS_BY_GROUP.items():
         targets.extend(Target("profile", handle, group) for handle in handles)
     seed_file = ROOT / "data" / "scrape_seeds.txt"
@@ -650,17 +650,54 @@ def run_discovery(args: argparse.Namespace) -> None:
     print("STOP: review the table and approve the handles you want ingested.")
 
 
+def run_login_only() -> None:
+    """Open Instagram for manual login, then wait until the user closes Chrome."""
+    driver = create_driver()
+    try:
+        try:
+            driver.get("https://www.instagram.com/")
+        except TimeoutException:
+            stop_page_load(driver)
+        print(
+            "[LOGIN ONLY] Instagram is open in Chrome. Complete login manually, "
+            "then close this Chrome window.",
+            flush=True,
+        )
+        while True:
+            time.sleep(1)
+            try:
+                _ = driver.current_url
+            except Exception:
+                print("[LOGIN ONLY] Chrome window closed.", flush=True)
+                return
+    except KeyboardInterrupt:
+        print("[LOGIN ONLY] Interrupted.", flush=True)
+    finally:
+        try:
+            driver.quit()
+        except Exception:
+            pass
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--max-targets", type=int, default=60)
     parser.add_argument("--max-minutes", type=int, default=25)
     parser.add_argument("--dry-run", action="store_true", default=True)
+    parser.add_argument(
+        "--login-only",
+        action="store_true",
+        help="Open Instagram for manual login and wait until Chrome is closed.",
+    )
     parser.add_argument("--ingest-approved", nargs="*", default=None, metavar="HANDLE")
     return parser.parse_args(argv)
 
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
+    if args.login_only:
+        run_login_only()
+        return
     if args.ingest_approved is not None:
         raise SystemExit("Ingestion is gated on the user's explicit approval after the dry-run candidate table.")
     run_discovery(args)
