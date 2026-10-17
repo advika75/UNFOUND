@@ -60,3 +60,4 @@ scraper/chrome_profile/
 
 # Exported ONNX text encoder (~254 MB): built by backend/ml/export_clip_text_onnx.py, never committed
 backend/ml/artifacts/
+scraper/data/brand_sites.csv
