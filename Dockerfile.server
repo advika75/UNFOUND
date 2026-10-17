@@ -22,3 +22,4 @@ RUN chmod +x /app/backend/start.sh
 EXPOSE 8000
 
 CMD ["/app/backend/start.sh"]
+
