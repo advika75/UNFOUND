@@ -180,14 +180,14 @@ const CATEGORY_TREE = [
       "Tech Accessories",
       "Audio",
       "Desk Gadgets",
-      "Smart Devices",
+      "Digital Devices",
       "Lifestyle Tech",
     ],
   },
   {
     name: "Watches",
     tone: "lavender",
-    subs: ["Minimal", "Luxury", "Vintage", "Smart Watches"],
+    subs: ["Minimal", "Luxury", "Vintage", "Digital Watches"],
   },
   {
     name: "Accessories",
@@ -1746,7 +1746,7 @@ function MoodboardsPage({ state, setState, products, actions }) {
   const mood = board?.items.some((p) =>
     /black|silver|minimal/i.test(`${p.product_name} ${p.category}`),
   )
-    ? "Minimal / Monochrome / Smart Casual"
+    ? "Minimal / Monochrome / Everyday"
     : "Independent / Eclectic / Everyday";
   return (
     <div className="page-shell">
@@ -2079,10 +2079,8 @@ function AboutPage() {
         <p className="kicker">ABOUT UNFOUND</p>
         <h1>Not another marketplace.</h1>
         <p>
-          UNFOUND is an AI-powered fashion and lifestyle magazine you can
-          search. We use visual intelligence to connect you with independent
-          brands, unexpected objects and pieces that feel like you—even before
-          you know the words.
+          UNFOUND is a fashion and lifestyle magazine you can search. Discover
+          independent brands, unexpected objects and pieces that feel like you.
         </p>
         <blockquote>Find what you weren’t looking for.</blockquote>
       </section>
@@ -2367,10 +2365,9 @@ export default function App() {
           close={() => setSelectedProduct(null)}
         />
       )}
-      <footer>
+      <footer className="site-footer">
         <strong>UNFOUND✦</strong>
-        <p>Find what you weren’t looking for.</p>
-        <span>Independent by design · AI-powered discovery</span>
+        <p>Find what you <em>weren’t looking for.</em></p>
       </footer>
       <AuthModal
         open={authModalOpen}
