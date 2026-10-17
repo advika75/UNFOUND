@@ -196,11 +196,11 @@ def test_category_endpoint_excludes_unrelated_products_and_brands(monkeypatch) -
         "accessories-jewellery": {"id": 50, "slug": "accessories-jewellery", "name": "Jewellery", "parent_id": 40},
     }
     products = [
-        product("Black Straight Leg Jeans", "women's denim", brand_id="jeans-brand", brand_name="Denim Label", category_id=12, classifier_confidence=.97, audience="women"),
-        product("Silver Hoop Earrings", brand_id="jewel-brand", brand_name="Silver Label", category_id=50, classifier_confidence=.98),
-        product("Men Oxford Shirt", "men's shirt", brand_id="shirt-brand", brand_name="Menswear", category_id=8, classifier_confidence=.95),
-        product("Minimal Analog Watch", brand_id="watch-brand", brand_name="Watch Co", category_id=60, classifier_confidence=.96),
-        product("Oak Desk", "home furniture", brand_id="home-brand", brand_name="Home Co", category_id=70, classifier_confidence=.95),
+        product("Black Straight Leg Jeans", "women's denim", brand_id="jeans-brand", brand_name="Denim Label", category_id=12, classifier_confidence=.97, audience="women", image_url="https://example.com/jeans.jpg"),
+        product("Silver Hoop Earrings", brand_id="jewel-brand", brand_name="Silver Label", category_id=50, classifier_confidence=.98, image_url="https://example.com/earrings.jpg"),
+        product("Men Oxford Shirt", "men's shirt", brand_id="shirt-brand", brand_name="Menswear", category_id=8, classifier_confidence=.95, image_url="https://example.com/shirt.jpg"),
+        product("Minimal Analog Watch", brand_id="watch-brand", brand_name="Watch Co", category_id=60, classifier_confidence=.96, image_url="https://example.com/watch.jpg"),
+        product("Oak Desk", "home furniture", brand_id="home-brand", brand_name="Home Co", category_id=70, classifier_confidence=.95, image_url="https://example.com/desk.jpg"),
     ]
     brands = [{"id": f"{name}-brand", "name": name} for name in ("jeans", "jewel", "shirt", "watch", "home")]
     monkeypatch.setattr("backend.app.category_map", lambda _: categories)

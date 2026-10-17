@@ -22,8 +22,11 @@ def test_category_visual_types_select_stable_relevant_image_and_hide_zero_types(
 
 
 def test_missing_image_uses_neutral_null_fallback():
-    tile = representative_type_tiles([product("Corset top", image=None)], {"tops"})[0]
-    assert tile["image_url"] is None
+    assert representative_type_tiles([product("Corset top", image=None)], {"tops"}) == []
+    tiles = representative_type_tiles([product("Corset top", image="https://example.com/corset.jpg")], {"tops"})
+    assert len(tiles) == 1
+    assert tiles[0]["slug"] == "corset-top"
+    assert tiles[0]["image_url"] == "https://example.com/corset.jpg"
 
 
 def test_brand_targeting_rejects_non_sellers_and_deduplicates_handles():
