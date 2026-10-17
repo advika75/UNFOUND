@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from backend.discovery_engine import (
     MAX_PRODUCTS_PER_CATEGORY_PER_RAIL, catalog_context, discovery_sections, diversify, gem_label,
-    is_stable_product, personalized_score, product_gem_score, score_products,
+    is_stable_product, personalized_score, product_gem_score, score_products, diversify_audience_category,
 )
 
 BASE = "https://project.supabase.co"
@@ -157,3 +157,30 @@ def test_diversify_same_seed_is_stable_different_seed_can_reorder():
     assert once == twice  # same seed (e.g. the same signed-in user) -> stable across reloads
     different_orders = {tuple(r["id"] for r in diversify(rows, 10, seed=f"user-{n}")) for n in range(15)}
     assert len(different_orders) > 1  # different seeds -> can (and does) vary
+
+
+def test_audience_category_round_robin_caps_categories_and_brands():
+    rows = [
+        {"id": "w-clothing", "brand_id": "brand-a", "audience": "women", "product_family": "tops"},
+        {"id": "m-clothing", "brand_id": "brand-b", "audience": "men", "product_family": "tops"},
+        {"id": "u-clothing", "brand_id": "brand-c", "audience": "unisex", "product_family": "tops"},
+        {"id": "m-bags", "brand_id": "brand-d", "audience": "men", "product_family": "bags"},
+        {"id": "u-jewellery", "brand_id": "brand-e", "audience": "unisex", "product_family": "jewellery"},
+        {"id": "w-accessory", "brand_id": "brand-f", "audience": "women", "product_family": "watches"},
+        {"id": "same-brand", "brand_id": "brand-a", "audience": "men", "product_family": "bags"},
+    ]
+    selected = diversify_audience_category(rows, 8)
+    assert len(selected) == 6  # there are only six unique eligible brands across the capped groups
+    assert len({row["brand_id"] for row in selected[:5]}) == len(selected[:5])
+    families = [row["product_family"] for row in selected]
+    assert sum(family == "tops" for family in families) <= 2
+    assert {row["audience"] for row in selected[:3]} == {"women", "men", "unisex"}
+
+
+def test_diversity_only_selects_quality_eligible_products():
+    rows = score_products([
+        product("Women's crop top", description="women crop top", audience="women"),
+        product("Men's bag", description="men shoulder bag", audience="men"),
+    ], supabase_url=BASE)
+    selected = diversify_audience_category([row for row in rows if row["discovery_eligible"]], 8)
+    assert all(row["discovery_eligible"] for row in selected)

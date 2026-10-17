@@ -6,6 +6,7 @@ import json
 import math
 import os
 import random
+import re
 import statistics
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
@@ -264,6 +265,80 @@ def diversify(
     return output
 
 
+_DIVERSITY_AUDIENCES = ("women", "men", "unisex")
+_DIVERSITY_CATEGORIES = ("clothing", "bags", "accessories", "jewellery", "gifting", "home")
+
+
+def _diversity_group(row: dict[str, Any]) -> tuple[str | None, str | None]:
+    explicit_audience = " ".join(str(row.get(key) or "") for key in ("audience", "category_audience", "category", "normalized_main_category")).lower()
+    text = (explicit_audience + " " + _text(row)).lower()
+    audience: str | None = next((value for value in _DIVERSITY_AUDIENCES if re.search(rf"(?<![a-z]){value}(?![a-z])", explicit_audience)), None)
+    if audience is None:
+        audience = next((value for value in _DIVERSITY_AUDIENCES if re.search(rf"(?<![a-z]){value}(?![a-z])", text)), None)
+    family = str(row.get("product_family") or identify_product(_text(row))[0] or "")
+    category: str | None
+    if family in {"tops", "ethnic-upperwear", "shirts", "bottoms", "dresses", "sets", "outerwear", "hoodies", "socks", "lingerie", "underwear"}:
+        category = "clothing"
+    elif family == "bags":
+        category = "bags"
+    elif family == "jewellery":
+        category = "jewellery"
+    elif family in {"footwear", "watches"}:
+        category = "accessories"
+    else:
+        text = _text(row).lower()
+        category = next((value for value, terms in {
+            "jewellery": ("jewellery", "jewelry"), "bags": ("bag", "bags"),
+            "gifting": ("gift", "gifting"), "home": ("home", "decor"),
+            "accessories": ("accessory", "accessories"),
+        }.items() if any(term in text for term in terms)), None)
+    if category not in _DIVERSITY_CATEGORIES:
+        category = None
+    return audience, category
+
+
+def diversify_audience_category(rows: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+    """Round-robin eligible products across observed audience/category lanes."""
+    lanes: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        audience, category = _diversity_group(row)
+        if audience and category:
+            lanes[(audience, category)].append(row)
+    category_order = [category for category in _DIVERSITY_CATEGORIES if any(lanes.get((audience, category)) for audience in _DIVERSITY_AUDIENCES)]
+    output: list[dict[str, Any]] = []
+    cursors = {lane: 0 for lane in lanes}
+    counts: Counter[str] = Counter()
+    brands: Counter[str] = Counter()
+    while len(output) < limit:
+        progressed = False
+        for audience in _DIVERSITY_AUDIENCES:
+            if len(output) >= limit:
+                break
+            added_for_audience = False
+            for category in category_order:
+                lane = (audience, category)
+                if counts[category] >= 2 or not lanes.get(lane):
+                    continue
+                items = lanes[lane]
+                while cursors[lane] < len(items):
+                    row = items[cursors[lane]]
+                    cursors[lane] += 1
+                    brand = str(row.get("brand_id") or row.get("brand_name") or "")
+                    if brands[brand] >= (1 if len(output) < 5 else MAX_PRODUCTS_PER_BRAND_PER_RAIL):
+                        continue
+                    output.append(row)
+                    brands[brand] += 1
+                    counts[category] += 1
+                    progressed = True
+                    added_for_audience = True
+                    break
+                if added_for_audience:
+                    break
+        if not progressed:
+            break
+    return output
+
+
 def score_products(products: list[dict[str, Any]], *, supabase_url: str, interactions: list[dict[str, Any]] | None = None, preferences: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     context = catalog_context(products, interactions)
     output=[]
@@ -306,10 +381,10 @@ def brand_gem_scores(brands: list[dict[str, Any]], scored_products: list[dict[st
 def discovery_sections(products: list[dict[str, Any]], brands: list[dict[str, Any]], *, supabase_url: str, interactions: list[dict[str, Any]] | None = None, preferences: dict[str, Any] | None = None, category: str | None = None, product_type: str | None = None, limit: int = 16, seed: str = "") -> dict[str, Any]:
     scored=[r for r in score_products(products,supabase_url=supabase_url,interactions=interactions,preferences=preferences) if _matches(r,category=category,product_type=product_type)]
     pool=[r for r in scored if r["discovery_eligible"]]
-    hidden=diversify(sorted(pool,key=lambda r:(r["gem_score"]*.75+(r["components"].get("niche_factor") or .5)*15+r["exposure_boost"]*10),reverse=True),limit,seed=seed)
+    hidden=diversify_audience_category(sorted(pool,key=lambda r:(r["gem_score"]*.75+(r["components"].get("niche_factor") or .5)*15+r["exposure_boost"]*10),reverse=True),limit)
     trending_evidence=any((interactions or []))
     trending=diversify(sorted(pool,key=lambda r:((r["components"].get("engagement") or 0)*50+(r["components"].get("freshness") or 0)*25+r["gem_score"]*.25),reverse=True),limit,seed=seed)
-    fresh=diversify(sorted(pool,key=lambda r:((r["components"].get("freshness") or 0),r["gem_score"]),reverse=True),limit,seed=seed)
+    fresh=diversify_audience_category(sorted(pool,key=lambda r:((r["components"].get("freshness") or 0),r["gem_score"]),reverse=True),limit)
     new=diversify(sorted(pool,key=lambda r:(_date(r.get("scraped_at") or r.get("created_at")) or datetime.min.replace(tzinfo=timezone.utc),r["gem_score"]),reverse=True),limit,seed=seed)
     missed=diversify(sorted(pool,key=lambda r:(r["gem_score"]*.8+r["exposure_boost"]*20),reverse=True),limit,seed=seed)
     scored_brands=brand_gem_scores(brands,scored)

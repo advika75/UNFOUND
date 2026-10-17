@@ -1327,13 +1327,16 @@ def require_admin_key(provided: str | None) -> None:
 def representative_type_tiles(products: list[dict[str, Any]], allowed_families: set[str] | None = None) -> list[dict[str, Any]]:
     grouped: dict[str, list[dict[str, Any]]] = {}
     for product in products:
-        family, product_type = identify_product(product_search_text(product))
+        # Type membership must be evidenced by the product's own name/category
+        # fields, not a passing mention in marketing copy.
+        type_text = " ".join(str(product.get(key) or "") for key in ("product_name", "item_name", "category", "subcategory", "normalized_subcategory"))
+        family, product_type = identify_product(type_text)
         if not family or not product_type or (allowed_families and family not in allowed_families):
             continue
         grouped.setdefault(product_type, []).append(product)
     tiles = []
     for product_type, rows in grouped.items():
-        image_rows = [row for row in rows if _stable_product_image(row)]
+        image_rows = [row for row in rows if _usable_image(row)]
         image_rows.sort(key=lambda row: (
             float(row.get("classifier_confidence") or 0),
             float(row.get("niche_score") or 0),
@@ -1341,10 +1344,12 @@ def representative_type_tiles(products: list[dict[str, Any]], allowed_families: 
             str(row.get("scraped_at") or ""),
         ), reverse=True)
         representative = image_rows[0] if image_rows else None
+        if representative is None:
+            continue
         tiles.append({
             "name": TYPE_LABELS.get(product_type, product_type.replace("-", " ").title()),
             "slug": product_type,
-            "image_url": representative.get("image_url") if representative else None,
+            "image_url": representative.get("image_url"),
             "product_count": len(rows),
             "terms": list(type_terms(product_type)),
         })
@@ -1466,6 +1471,7 @@ async def category_catalog(category_slug: str, limit: int = 48, offset: int = 0)
     brands = []
     for row in all_brands:
         rows = evidence.get(str(row.get("id")), [])
+        rows = [item for item in rows if _usable_image(next((source for source in all_products if source.get("id") == item["product_id"]), {}))]
         if not rows:
             continue
         brands.append({
