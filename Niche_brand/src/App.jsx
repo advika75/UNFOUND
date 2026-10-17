@@ -676,14 +676,14 @@ function BrandRailSection({ kicker, title, note, brands, min = MIN_BRAND_RAIL_IT
     <Section kicker={kicker} title={title} note={note}>
       <div className="brand-row">
         {brands.slice(0, 5).map((item) => (
-          <BrandCard key={item.id} brand={normalizeBrand(item)} count={item.eligible_product_count} onOpen={openBrand} />
+          <BrandCard key={item.id} brand={normalizeBrand(item)} onOpen={openBrand} />
         ))}
       </div>
     </Section>
   );
 }
 
-function BrandCard({ brand, count = 0, onOpen }) {
+function BrandCard({ brand, onOpen }) {
   const open = () => onOpen(brand);
   return (
     <article
@@ -708,7 +708,7 @@ function BrandCard({ brand, count = 0, onOpen }) {
         <strong>{brand.name}</strong>
         <em>
           {brand.instagram_username ? `@${brand.instagram_username} · ` : ""}
-          {formatNumber(brand.followers)} followers · {count} pieces
+          {formatNumber(brand.followers)} followers
         </em>
         {brand.profile_url && (
           <a
@@ -742,7 +742,7 @@ function HeroSearch({ go, setSeedQuery }) {
           Dress like your <em>algorithm</em> gets you.
         </h1>
         <p>
-          One endless feed of independent labels, hard-to-find pieces, and the designers shaping what’s next.
+          One endless feed of independent labels, unexpected designs, and the people shaping what’s next.
         </p>
         <form className="hero-search-form" onSubmit={submit}>
           <Icon name="search" />
@@ -847,13 +847,13 @@ function DiscoverPage({
           <RetryButton onRetry={onRetry} />
         </EmptyState>
       )}
-      {loading ? (
+      {feedsLoading ? (
         <Section kicker="CURATED BY UNFOUND" title="UNFOUND PICKS" note="A small edit of things we think are worth seeing.">
           <div className="loading-block">Curating the edit…</div>
         </Section>
-      ) : (
-        <RailSection kicker="CURATED BY UNFOUND" title="UNFOUND PICKS" note="A small edit of things we think are worth seeing." products={products.slice(0, 8)} state={state} actions={actions} />
-      )}
+      ) : !feedsError ? (
+        <RailSection kicker="CURATED BY UNFOUND" title="UNFOUND PICKS" note="A small edit of things we think are worth seeing." products={discoveryFeeds.hidden_gems.slice(0, 8)} state={state} actions={actions} />
+      ) : null}
       {feedsLoading ? (
         <div className="loading-block">Curating your feed…</div>
       ) : feedsError ? (
@@ -872,7 +872,7 @@ function DiscoverPage({
                   <br />
                   Big point of view.
                 </h2>
-                <p>Independent names making pieces that refuse to blend in.</p>
+                <p>Independent names with a point of view that refuses to blend in.</p>
                 <button onClick={() => go("brands")}>Meet the brands →</button>
               </div>
               <ProductRail products={hidden.slice(0, 4)} state={state} actions={actions} />
@@ -888,7 +888,7 @@ function DiscoverPage({
             actions={actions}
           />
           <RailSection kicker="THE TOPS EDIT" title="Stylish Tops" note="Going-out, cropped, fitted and less-obvious tops from independent labels." products={discoveryFeeds.stylish_tops.slice(0, 8)} state={state} actions={actions} />
-          <RailSection kicker="CONTEMPORARY CRAFT" title="Modern Ethnic" note="Kurtis, co-ords and contemporary ethnic pieces selected from the live catalog." products={discoveryFeeds.modern_ethnic.slice(0, 8)} state={state} actions={actions} />
+          <RailSection kicker="CONTEMPORARY CRAFT" title="Modern Ethnic" note="Kurtis and co-ords selected from the live catalog." products={discoveryFeeds.modern_ethnic.slice(0, 8)} state={state} actions={actions} />
           <RailSection kicker="👀 YOU MIGHT HAVE MISSED" title="Quietly worth your attention" note="Strong gems receiving less exposure across discovery." products={discoveryFeeds.missed.slice(0, 8)} state={state} actions={actions} />
           <BrandRailSection kicker="✨ EMERGING BRANDS" title="Independent names to know" note="Promising labels ranked by catalog quality, distinctiveness and recent activity." brands={discoveryFeeds.emerging_brands} openBrand={actions.openBrand} />
           <BrandRailSection kicker="TRENDING BRANDS" title="Names gaining attention" note="Ranked by freshness, engagement, catalog depth and niche relevance—not followers alone." brands={discoveryFeeds.trending_brands} openBrand={actions.openBrand} />
@@ -896,7 +896,7 @@ function DiscoverPage({
       )}
       <CategoryStrip go={go} />
       {!feedsLoading && !feedsError && (
-        <RailSection kicker="🆕 NEW DISCOVERIES" title="Freshly found labels and pieces" note="Recent, quality-checked additions from independent labels." products={discoveryFeeds.new_discoveries.slice(0, 8)} state={state} actions={actions} />
+        <RailSection kicker="🆕 NEW DISCOVERIES" title="Freshly found labels" note="Recent, quality-checked additions from independent labels." products={discoveryFeeds.new_discoveries.slice(0, 8)} state={state} actions={actions} />
       )}
     </div>
   );
@@ -1045,7 +1045,7 @@ function CategoryPage({
           {selection.main.toUpperCase()}{selection.sub ? ` / ${selection.sub.toUpperCase()}` : ""}
         </p>
         <h1>{selection.sub || selection.main}</h1>
-        <span>Selected pieces, independent labels and less obvious finds.</span>
+        <span>Independent labels and less obvious finds.</span>
       </header>
       <div className="filter-bar">
         <button>Price⌄</button>
@@ -1064,7 +1064,6 @@ function CategoryPage({
               <button key={type.slug} className={selectedType === type.slug ? "active" : ""} onClick={() => { setSelectedType(selectedType === type.slug ? "" : type.slug); setVisible(16); }}>
                 <span><SafeImage src={type.image_url} alt={type.name} /></span>
                 <strong>{type.name}</strong>
-                <small>{type.product_count} pieces</small>
               </button>
             ))}
           </div>
@@ -1089,7 +1088,6 @@ function CategoryPage({
                 <BrandCard
                   key={b.id}
                   brand={b}
-                  count={filtered.filter((p) => p.brand_id === b.id).length}
                   onOpen={openBrand}
                 />
               ))}
@@ -1223,8 +1221,8 @@ function BrandProfile({ brand, products, brands, actions, state, back }) {
       .finally(() => setLoading(false));
     return () => controller.abort();
   }, [brand?.id, retryKey]);
-  const pieces = remote;
-  const cats = [...new Set(pieces.map((p) => p.category).filter(Boolean))];
+  const brandProducts = remote;
+  const cats = [...new Set(brandProducts.map((p) => p.category).filter(Boolean))];
   return (
     <div className="page-shell">
       <button className="back-link" onClick={back}>
@@ -1242,7 +1240,7 @@ function BrandProfile({ brand, products, brands, actions, state, back }) {
           <p className="kicker">UNFOUND BRAND PROFILE</p>
           <h1>{brand.name}</h1>
           <p>
-            Independent label with a distinct point of view and pieces worth
+            Independent label with a distinct point of view and finds worth
             discovering slowly.
           </p>
           <div className="profile-facts">
@@ -1262,7 +1260,7 @@ function BrandProfile({ brand, products, brands, actions, state, back }) {
       <Section
         title="Products"
         note={
-          loading ? "Loading real products…" : `${pieces.length} pieces found`
+          loading ? "Loading real products…" : "Real catalog results"
         }
       >
         {loading ? (
@@ -1271,9 +1269,9 @@ function BrandProfile({ brand, products, brands, actions, state, back }) {
           <EmptyState tone="error" title="Products unavailable" note={humanizeFetchError(error)}>
             <RetryButton onRetry={() => setRetryKey((key) => key + 1)} />
           </EmptyState>
-        ) : pieces.length ? (
+        ) : brandProducts.length ? (
           <ProductRail
-            products={pieces.slice(0, 12)}
+            products={brandProducts.slice(0, 12)}
             state={state}
             actions={actions}
           />
@@ -1644,7 +1642,7 @@ function DoluPage({ state, actions }) {
   };
   const suggestions = ["Find minimalist silver jewellery under ₹2000", "Style me for a college party", "Show niche Indian jewellery brands", "Create a summer moodboard"];
   return <div className="page-shell dolu-page">
-    <header className="page-intro"><div><p className="kicker">YOUR DISCOVERY STYLIST</p><h1>Ask DOLU ✦</h1><p>Real pieces, real independent brands, shaped around what you save.</p></div></header>
+    <header className="page-intro"><div><p className="kicker">YOUR DISCOVERY STYLIST</p><h1>Ask DOLU ✦</h1><p>Real finds, real independent brands, shaped around what you save.</p></div></header>
     <div className="dolu-suggestions">{suggestions.map((text) => <button key={text} onClick={() => send(null, text)}>{text}</button>)}</div>
     <section className="dolu-thread">
       {messages.map((message, index) => <article key={index} className={`dolu-bubble ${message.role}`}>
@@ -1769,7 +1767,7 @@ function MoodboardsPage({ state, setState, products, actions }) {
         <StartState
           glyph="✦"
           title="Your first mood starts here."
-          note="Moodboards collect pieces you're drawn to into one visual collection. Save products from anywhere in UNFOUND, or create a board above, then arrange the feeling."
+          note="Moodboards collect finds you're drawn to into one visual collection. Save products from anywhere in UNFOUND, or create a board above, then arrange the feeling."
         />
       ) : (
         <div className="mood-layout">
@@ -1869,7 +1867,7 @@ function MoodboardsPage({ state, setState, products, actions }) {
                     <h3>{mood}</h3>
                     <p>
                       UNFOUND reads the common visual language across your saved
-                      pieces.
+                      products.
                     </p>
                   </div>
                 </>
@@ -1972,7 +1970,7 @@ function SavedPage({ state, actions }) {
       <header className="page-intro">
         <p className="kicker">YOUR ARCHIVE</p>
         <h1>Saved, for later.</h1>
-        <p>The pieces you wanted to find again.</p>
+        <p>The finds you wanted to see again.</p>
       </header>
       <div className="product-grid-new">
         {state.saved.map((p) => (
@@ -2064,7 +2062,7 @@ function ProfilePage({ state, auth, openAuthModal }) {
           <StartState
             glyph="✦"
             title="No signals yet."
-            note="Browse, search and save pieces you like -- this quietly fills in from there."
+            note="Browse, search and save products you like -- this quietly fills in from there."
           />
         )}
       </Section>
@@ -2080,7 +2078,7 @@ function AboutPage() {
         <h1>Not another marketplace.</h1>
         <p>
           UNFOUND is a fashion and lifestyle magazine you can search. Discover
-          independent brands, unexpected objects and pieces that feel like you.
+          independent brands, unexpected objects and finds that feel like you.
         </p>
         <blockquote>Find what you weren’t looking for.</blockquote>
       </section>
@@ -2343,7 +2341,7 @@ export default function App() {
   ]);
   return (
     <main className={page === "discover" ? "home-page" : "inner-page"}>
-      <div className="fresh-banner">Fresh from the feed <span>Independent labels and pieces, found for you</span> <button onClick={() => go("brands")}>Explore brands →</button></div>
+      <div className="fresh-banner">Fresh from the feed <span>Independent labels, found for you</span> <button onClick={() => go("brands")}>Explore brands →</button></div>
       <Nav
         page={page}
         go={go}
