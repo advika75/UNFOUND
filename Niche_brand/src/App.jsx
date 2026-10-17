@@ -905,7 +905,7 @@ function CategoryStrip({ go }) {
         {CATEGORY_TREE.map((cat, index) => (
           <button
             key={cat.name}
-            className={cat.tone}
+            className={`home-category-tile home-category-tile-${index % 3}`}
             onClick={() => go("category", { main: cat.name, sub: "" })}
           >
             <small>0{index + 1}</small>
